@@ -23,7 +23,7 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl animate-scale-in">
+      <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl animate-scale-in [&>button]:bg-secondary [&>button]:rounded-full [&>button]:w-8 [&>button]:h-8 [&>button]:hover:bg-secondary/80 [&>button]:border-0 [&>button]:top-4 [&>button]:right-4">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center wemovelt-gradient-text">
             {mode === "login" ? "Bem-vindo de volta!" : "Criar conta"}
