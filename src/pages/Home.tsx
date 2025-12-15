@@ -5,6 +5,7 @@ import { Play, MapPin, Check, X, Target } from "lucide-react";
 import { useState } from "react";
 import CheckInModal from "@/components/modals/CheckInModal";
 import GoalModal from "@/components/modals/GoalModal";
+import GymLocationsSection from "@/components/GymLocationsSection";
 import { useNavigate } from "react-router-dom";
 
 const weekDays = [
@@ -118,6 +119,9 @@ const Home = () => {
             ))}
           </div>
         </section>
+
+        {/* Localizações das Academias Section */}
+        <GymLocationsSection />
       </main>
 
       <BottomNav />

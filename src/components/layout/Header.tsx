@@ -1,9 +1,11 @@
 import { Menu, Bell } from "lucide-react";
 import { useState } from "react";
 import MenuDrawer from "../modals/MenuDrawer";
+import NotificationsModal from "../modals/NotificationsModal";
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
     <>
@@ -18,7 +20,10 @@ const Header = () => {
           
           <h1 className="text-xl font-bold wemovelt-gradient-text">WEMOVELT</h1>
           
-          <button className="p-2 touch-target hover:bg-secondary rounded-lg transition-colors relative">
+          <button 
+            onClick={() => setNotificationsOpen(true)}
+            className="p-2 touch-target hover:bg-secondary rounded-lg transition-colors relative"
+          >
             <Bell size={22} />
             <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
           </button>
@@ -26,6 +31,7 @@ const Header = () => {
       </header>
       
       <MenuDrawer open={menuOpen} onOpenChange={setMenuOpen} />
+      <NotificationsModal open={notificationsOpen} onOpenChange={setNotificationsOpen} />
     </>
   );
 };
