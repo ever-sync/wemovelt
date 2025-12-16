@@ -36,7 +36,7 @@ const faqs = [
 
 const HelpModal = ({ open, onOpenChange }: HelpModalProps) => {
   const handleWhatsApp = () => {
-    window.open("https://wa.me/5511999999999?text=Olá! Preciso de ajuda com o app WEMOVELT", "_blank");
+    window.open("https://wa.me/5511952130972?text=Olá! Preciso de ajuda com o app WEMOVELT", "_blank");
   };
 
   return (
