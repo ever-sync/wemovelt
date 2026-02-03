@@ -8,7 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search, CheckCircle2, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { gymFormSchema } from "@/lib/validations";
 
 interface Gym {
   id: string;
@@ -28,6 +30,45 @@ interface GymFormProps {
   isLoading?: boolean;
 }
 
+interface ViaCepResponse {
+  cep: string;
+  logradouro: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  erro?: boolean;
+}
+
+const formatCep = (value: string): string => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
+};
+
+const parseAddressFromString = (address: string | null | undefined) => {
+  if (!address) return { street: "", number: "", neighborhood: "", city: "", state: "", cep: "" };
+  
+  // Try to parse: "Rua das Flores, 123 - Centro, São Paulo - SP, 01310-100"
+  const cepMatch = address.match(/(\d{5}-?\d{3})$/);
+  const cep = cepMatch ? cepMatch[1] : "";
+  
+  const parts = address.replace(/,?\s*\d{5}-?\d{3}$/, "").split(" - ");
+  
+  if (parts.length >= 3) {
+    const streetParts = parts[0].split(", ");
+    return {
+      street: streetParts[0] || "",
+      number: streetParts[1] || "",
+      neighborhood: parts[1] || "",
+      city: parts[2]?.split(" - ")[0] || "",
+      state: parts[2]?.split(" - ")[1] || "",
+      cep,
+    };
+  }
+  
+  return { street: address, number: "", neighborhood: "", city: "", state: "", cep: "" };
+};
+
 const GymForm = ({
   open,
   onOpenChange,
@@ -35,67 +76,152 @@ const GymForm = ({
   onSubmit,
   isLoading,
 }: GymFormProps) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
-    address: "",
-    lat: "",
-    lng: "",
+    cep: "",
+    street: "",
+    number: "",
+    neighborhood: "",
+    city: "",
+    state: "",
     radius: "50",
-    image_url: "",
   });
+  const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (gym) {
+      const parsed = parseAddressFromString(gym.address);
       setFormData({
         name: gym.name || "",
-        address: gym.address || "",
-        lat: gym.lat?.toString() || "",
-        lng: gym.lng?.toString() || "",
+        cep: parsed.cep,
+        street: parsed.street,
+        number: parsed.number,
+        neighborhood: parsed.neighborhood,
+        city: parsed.city,
+        state: parsed.state,
         radius: gym.radius?.toString() || "50",
-        image_url: gym.image_url || "",
       });
+      if (parsed.cep) setCepStatus("success");
     } else {
       setFormData({
         name: "",
-        address: "",
-        lat: "",
-        lng: "",
+        cep: "",
+        street: "",
+        number: "",
+        neighborhood: "",
+        city: "",
+        state: "",
         radius: "50",
-        image_url: "",
+      });
+      setCepStatus("idle");
+    }
+    setErrors({});
+  }, [gym, open]);
+
+  const fetchAddressByCep = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length !== 8) {
+      setCepStatus("idle");
+      return;
+    }
+
+    setCepStatus("loading");
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data: ViaCepResponse = await response.json();
+
+      if (data.erro) {
+        setCepStatus("error");
+        toast({
+          title: "CEP não encontrado",
+          description: "Verifique o CEP digitado e tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        street: data.logradouro || "",
+        neighborhood: data.bairro || "",
+        city: data.localidade || "",
+        state: data.uf || "",
+      }));
+      setCepStatus("success");
+      setErrors((prev) => {
+        const { cep, street, neighborhood, city, state, ...rest } = prev;
+        return rest;
+      });
+    } catch (error) {
+      setCepStatus("error");
+      toast({
+        title: "Erro ao buscar CEP",
+        description: "Não foi possível conectar ao serviço. Tente novamente.",
+        variant: "destructive",
       });
     }
-  }, [gym, open]);
+  };
+
+  const handleCepChange = (value: string) => {
+    const formatted = formatCep(value);
+    setFormData((prev) => ({ ...prev, cep: formatted }));
+    
+    if (formatted.replace(/\D/g, "").length === 8) {
+      fetchAddressByCep(formatted);
+    } else {
+      setCepStatus("idle");
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    const validationData = {
+      ...formData,
+      radius: parseInt(formData.radius) || 50,
+    };
+
+    const result = gymFormSchema.safeParse(validationData);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0].toString()] = err.message;
+        }
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    // Build full address for GPS navigation
+    const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, ${formData.cep}`;
+
     const data = {
       name: formData.name,
-      address: formData.address || null,
-      lat: formData.lat ? parseFloat(formData.lat) : null,
-      lng: formData.lng ? parseFloat(formData.lng) : null,
-      radius: formData.radius ? parseInt(formData.radius) : 50,
-      image_url: formData.image_url || null,
+      address: fullAddress,
+      lat: null,
+      lng: null,
+      radius: parseInt(formData.radius) || 50,
+      image_url: null,
       ...(gym?.id && { id: gym.id }),
     };
-    
+
     onSubmit(data);
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData({
-            ...formData,
-            lat: position.coords.latitude.toFixed(6),
-            lng: position.coords.longitude.toFixed(6),
-          });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        }
-      );
+  const getCepIcon = () => {
+    switch (cepStatus) {
+      case "loading":
+        return <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />;
+      case "success":
+        return <CheckCircle2 className="w-4 h-4 text-primary" />;
+      case "error":
+        return <AlertCircle className="w-4 h-4 text-destructive" />;
+      default:
+        return <Search className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -116,59 +242,95 @@ const GymForm = ({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Ex: Praça da Liberdade"
-              required
+              className={errors.name ? "border-destructive" : ""}
             />
+            {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address">Endereço</Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="Ex: Rua das Flores, 123 - Centro"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Localização GPS</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={getCurrentLocation}
-              >
-                Usar minha localização
-              </Button>
+            <Label htmlFor="cep">CEP *</Label>
+            <div className="relative">
+              <Input
+                id="cep"
+                value={formData.cep}
+                onChange={(e) => handleCepChange(e.target.value)}
+                placeholder="00000-000"
+                maxLength={9}
+                className={`pr-10 ${errors.cep ? "border-destructive" : ""}`}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {getCepIcon()}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="lat" className="text-xs text-muted-foreground">
-                  Latitude
-                </Label>
-                <Input
-                  id="lat"
-                  type="number"
-                  step="any"
-                  value={formData.lat}
-                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-                  placeholder="-23.550520"
-                />
-              </div>
-              <div>
-                <Label htmlFor="lng" className="text-xs text-muted-foreground">
-                  Longitude
-                </Label>
-                <Input
-                  id="lng"
-                  type="number"
-                  step="any"
-                  value={formData.lng}
-                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-                  placeholder="-46.633308"
-                />
-              </div>
+            {errors.cep && <p className="text-sm text-destructive">{errors.cep}</p>}
+            <p className="text-xs text-muted-foreground">
+              Digite o CEP para preencher o endereço automaticamente
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="street">Rua</Label>
+            <Input
+              id="street"
+              value={formData.street}
+              onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+              placeholder="Preenchido automaticamente"
+              disabled={cepStatus === "loading"}
+              className={errors.street ? "border-destructive" : ""}
+            />
+            {errors.street && <p className="text-sm text-destructive">{errors.street}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="number">Número *</Label>
+            <Input
+              id="number"
+              value={formData.number}
+              onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+              placeholder="Ex: 123"
+              className={errors.number ? "border-destructive" : ""}
+            />
+            {errors.number && <p className="text-sm text-destructive">{errors.number}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="neighborhood">Bairro</Label>
+            <Input
+              id="neighborhood"
+              value={formData.neighborhood}
+              onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+              placeholder="Preenchido automaticamente"
+              disabled={cepStatus === "loading"}
+              className={errors.neighborhood ? "border-destructive" : ""}
+            />
+            {errors.neighborhood && <p className="text-sm text-destructive">{errors.neighborhood}</p>}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="city">Cidade</Label>
+              <Input
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="Cidade"
+                disabled={cepStatus === "loading"}
+                className={errors.city ? "border-destructive" : ""}
+              />
+              {errors.city && <p className="text-sm text-destructive">{errors.city}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state">UF</Label>
+              <Input
+                id="state"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+                placeholder="SP"
+                maxLength={2}
+                disabled={cepStatus === "loading"}
+                className={errors.state ? "border-destructive" : ""}
+              />
+              {errors.state && <p className="text-sm text-destructive">{errors.state}</p>}
             </div>
           </div>
 
@@ -182,21 +344,12 @@ const GymForm = ({
               value={formData.radius}
               onChange={(e) => setFormData({ ...formData, radius: e.target.value })}
               placeholder="50"
+              className={errors.radius ? "border-destructive" : ""}
             />
+            {errors.radius && <p className="text-sm text-destructive">{errors.radius}</p>}
             <p className="text-xs text-muted-foreground">
               Distância máxima para permitir check-in por GPS
             </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="image_url">URL da Imagem</Label>
-            <Input
-              id="image_url"
-              type="url"
-              value={formData.image_url}
-              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              placeholder="https://exemplo.com/imagem.jpg"
-            />
           </div>
 
           <div className="flex gap-2 pt-4">

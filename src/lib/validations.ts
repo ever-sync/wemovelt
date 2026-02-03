@@ -62,6 +62,22 @@ export const habitTypeSchema = z.enum(["hydration", "sleep", "nutrition", "welln
   errorMap: () => ({ message: "Tipo de hábito inválido" }),
 });
 
+// === Gym / CEP ===
+export const cepSchema = z
+  .string()
+  .regex(/^\d{5}-?\d{3}$/, "CEP inválido. Use o formato 00000-000");
+
+export const gymFormSchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(100, "Nome muito longo"),
+  cep: cepSchema,
+  street: z.string().min(1, "Rua obrigatória"),
+  number: z.string().min(1, "Número obrigatório"),
+  neighborhood: z.string().min(1, "Bairro obrigatório"),
+  city: z.string().min(1, "Cidade obrigatória"),
+  state: z.string().length(2, "UF inválido"),
+  radius: z.number().min(10, "Mínimo 10 metros").max(500, "Máximo 500 metros").default(50),
+});
+
 // Validation helper functions
 export const validateOrThrow = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
   const result = schema.safeParse(data);
