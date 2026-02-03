@@ -1,418 +1,247 @@
 
-# Fase 9: Seguranca
 
-## Resumo
+# Analise Completa: O que falta para Producao
 
-Esta fase implementa melhorias de seguranca em tres areas principais:
-- Politicas RLS (Row Level Security) - Corrigir vulnerabilidades identificadas
-- Validacao Zod - Expandir validacao para todos os formularios
-- Cache e Performance - Otimizar queries e adicionar staleTime
+## Status Geral do App
+
+O app WEMOVELT esta bem desenvolvido com uma estrutura solida. Baseado na minha analise minuciosa de todos os arquivos, hooks, componentes, banco de dados e configuracoes de seguranca, identifiquei os itens abaixo organizados por prioridade.
 
 ---
 
-## Estado Atual
+## CRITICO - Deve ser resolvido antes de ir ao ar
 
-### Problemas Identificados pelo Linter
+### 1. Politica RLS Permissiva em Notifications
 
-| Problema | Nivel | Descricao |
-|----------|-------|-----------|
-| RLS Policy Always True | WARN | Politica INSERT em notifications usa `true` |
-| Leaked Password Protection | WARN | Protecao de senhas vazadas desabilitada |
+**Problema**: A politica INSERT em `notifications` usa `WITH CHECK (true)`, permitindo que qualquer usuario autenticado insira notificacoes para qualquer outro usuario.
 
-### Problemas Identificados pelo Scanner
+**Status Atual**: Os triggers de like/comment usam SECURITY DEFINER, mas a politica INSERT ainda esta aberta.
 
-| Problema | Nivel | Descricao |
-|----------|-------|-----------|
-| check_ins_location_exposure | WARN | GPS preciso exposto sem validacao extra |
-| profiles_public_usernames | INFO | Perfis nao visiveis para funcoes sociais |
-
-### Validacao Zod Atual
-
-| Arquivo | Tem Validacao |
-|---------|---------------|
-| AuthModal.tsx | Sim (email, password, name) |
-| PostModal.tsx | Nao |
-| ProfileModal.tsx | Nao |
-| GoalModal.tsx | Nao |
-| CommentsModal.tsx | Nao |
-| ImageUpload.tsx | Parcial (tipo e tamanho) |
-
----
-
-## 1. Correcoes de RLS
-
-### 1.1 Corrigir politica INSERT em notifications
-
-Problema: Qualquer usuario autenticado pode inserir notificacoes para qualquer outro usuario.
-
+**Solucao**:
 ```sql
--- Remover politica permissiva atual
+-- Remover politica permissiva
 DROP POLICY IF EXISTS "System can insert notifications" ON public.notifications;
 
--- Criar funcao security definer para insercao de notificacoes do sistema
-CREATE OR REPLACE FUNCTION public.create_system_notification(
-  p_user_id UUID,
-  p_type TEXT,
-  p_title TEXT,
-  p_message TEXT,
-  p_data JSONB DEFAULT NULL
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  notification_id UUID;
-BEGIN
-  INSERT INTO public.notifications (user_id, type, title, message, data)
-  VALUES (p_user_id, p_type, p_title, p_message, p_data)
-  RETURNING id INTO notification_id;
-  
-  RETURN notification_id;
-END;
-$$;
-
--- Politica: usuarios nao podem inserir notificacoes diretamente
--- (triggers usam SECURITY DEFINER para inserir)
+-- Opcional: Criar politica mais restritiva se necessario
+-- (os triggers ja funcionam com SECURITY DEFINER)
 ```
 
-### 1.2 Adicionar RLS para profiles em funcoes sociais
+### 2. Habilitar Protecao de Senhas Vazadas
 
-Problema: Posts e comentarios precisam ver nome/avatar de outros usuarios.
+**Problema**: A verificacao HaveIBeenPwned esta desabilitada, permitindo que usuarios usem senhas comprometidas.
 
-```sql
--- Criar view publica para dados nao-sensiveis de perfis
-CREATE VIEW public.profiles_public
-WITH (security_invoker = ON)
-AS SELECT 
-  id,
-  name,
-  username,
-  avatar_url
-FROM public.profiles;
+**Solucao**: Configurar via Auth settings para habilitar `leaked password protection`.
 
--- OU adicionar politica SELECT para dados publicos (mais simples)
-CREATE POLICY "Anyone can view basic profile info for social features"
-ON public.profiles FOR SELECT
-TO authenticated
-USING (true);
--- Nota: A tabela profiles nao contem dados sensiveis como senha
--- age/weight/height sao opcionais e o usuario escolhe compartilhar
-```
+### 3. Falta ErrorBoundary Global
 
-### 1.3 Habilitar protecao de senhas vazadas
+**Problema**: Nao ha tratamento de erros fatais na aplicacao. Se um componente crashar, toda a app quebra.
 
-Usar ferramenta de configuracao de auth para habilitar HaveIBeenPwned check.
+**Solucao**: Implementar um ErrorBoundary no App.tsx que capture erros e exiba uma tela de fallback amigavel.
 
 ---
 
-## 2. Validacao Zod Expandida
+## ALTO - Muito importante para producao
 
-### 2.1 Esquemas de Validacao
+### 4. Treino do Dia com Dados Estaticos
 
-Criar arquivo centralizado: `src/lib/validations.ts`
+**Problema**: O componente `DailyWorkoutModal.tsx` usa dados hardcoded em vez de dados reais do banco.
 
-```typescript
-import { z } from "zod";
+**Localizacao**: Linhas 10-47 de DailyWorkoutModal.tsx
 
-// === Auth ===
-export const emailSchema = z
-  .string()
-  .trim()
-  .email("E-mail invalido")
-  .max(255, "E-mail muito longo");
+**Solucao**: Integrar com hook useWorkouts para mostrar treinos reais do usuario.
 
-export const passwordSchema = z
-  .string()
-  .min(6, "Minimo 6 caracteres")
-  .max(72, "Maximo 72 caracteres"); // limite bcrypt
+### 5. Settings Modal Nao Funcional
 
-export const nameSchema = z
-  .string()
-  .trim()
-  .min(2, "Nome muito curto")
-  .max(100, "Nome muito longo");
+**Problema**: Os switches e botoes de configuracoes em `SettingsModal.tsx` nao salvam nada - sao apenas UI.
 
-// === Profile ===
-export const profileSchema = z.object({
-  name: nameSchema,
-  age: z.number().min(13).max(120).nullable().optional(),
-  weight: z.number().min(20).max(500).nullable().optional(),
-  height: z.number().min(50).max(300).nullable().optional(),
-  goal: z.string().max(50).nullable().optional(),
-  experience_level: z.enum(["iniciante", "intermediario", "avancado"]).nullable().optional(),
-});
+**Itens nao funcionais**:
+- Toggle de notificacoes push (nao integrado)
+- Toggle de notificacoes por email (nao integrado)
+- "Gerenciar dados" e "Visibilidade do perfil" (botoes decorativos)
+- "Termos de uso" e "Politica de privacidade" (links nao existem)
 
-// === Posts ===
-export const postContentSchema = z
-  .string()
-  .trim()
-  .min(1, "Post nao pode estar vazio")
-  .max(2000, "Maximo 2000 caracteres");
+**Solucao**: Implementar logica real ou remover funcionalidades nao implementadas.
 
-export const commentSchema = z
-  .string()
-  .trim()
-  .min(1, "Comentario nao pode estar vazio")
-  .max(500, "Maximo 500 caracteres");
+### 6. Termos de Uso e Politica de Privacidade Ausentes
 
-// === Goals ===
-export const goalSchema = z.object({
-  type: z.enum(["workout", "hydration", "sleep", "nutrition"]),
-  target: z.number().min(1).max(7),
-  unit: z.string(),
-  title: z.string().max(100),
-});
+**Problema**: Links em SettingsModal e potencialmente necessarios para LGPD/compliance.
 
-// === Image Upload ===
-export const imageFileSchema = z.object({
-  size: z.number().max(5 * 1024 * 1024, "Imagem deve ter no maximo 5MB"),
-  type: z.string().regex(/^image\/(jpeg|png|gif|webp)$/, "Formato de imagem invalido"),
-});
+**Solucao**: Criar paginas ou modals com os termos legais.
+
+### 7. SEO e Meta Tags Incompletos
+
+**Problema**: O `index.html` tem meta tags minimas:
+- Falta description, keywords
+- Falta Open Graph tags (og:title, og:description, og:image)
+- Falta Twitter Card tags
+- Falta favicon customizado
+- Falta manifest.json para PWA
+
+**Solucao**:
+```html
+<head>
+  <meta name="description" content="WEMOVELT - App de treino em academias ao ar livre" />
+  <meta property="og:title" content="WEMOVELT" />
+  <meta property="og:description" content="Liberdade para treinar, forca para viver" />
+  <meta property="og:image" content="/og-image.jpg" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/favicon.ico" />
+</head>
 ```
 
-### 2.2 Componentes a Atualizar
+### 8. Console.logs em Producao
 
-| Componente | Adicionar Validacao |
-|------------|---------------------|
-| PostModal.tsx | postContentSchema antes de enviar |
-| ProfileModal.tsx | profileSchema com limites numericos |
-| CommentsModal.tsx | commentSchema antes de adicionar |
-| GoalModal.tsx | goalSchema antes de criar |
-| ImageUpload.tsx | imageFileSchema com tipos especificos |
+**Problema**: Encontrei 105 ocorrencias de console.log/error/warn em 14 arquivos. Em producao, isso pode:
+- Vazar informacoes sensiveis
+- Impactar performance
+- Parecer pouco profissional
 
----
-
-## 3. Validacao de Input nos Hooks
-
-### 3.1 usePosts.ts
-
+**Solucao**: Implementar logger condicional que so loga em desenvolvimento:
 ```typescript
-// Adicionar validacao antes de criar post
-const createPostMutation = useMutation({
-  mutationFn: async ({ content, imageFile }) => {
-    // Validar conteudo
-    const parsed = postContentSchema.safeParse(content);
-    if (!parsed.success) {
-      throw new Error(parsed.error.errors[0].message);
-    }
-    
-    // Validar imagem se existir
-    if (imageFile) {
-      const imgParsed = imageFileSchema.safeParse({
-        size: imageFile.size,
-        type: imageFile.type,
-      });
-      if (!imgParsed.success) {
-        throw new Error(imgParsed.error.errors[0].message);
-      }
-    }
-    
-    // ... resto do codigo
-  },
-});
-```
-
-### 3.2 useComments.ts
-
-```typescript
-const addCommentMutation = useMutation({
-  mutationFn: async ({ content, parentId }) => {
-    const parsed = commentSchema.safeParse(content);
-    if (!parsed.success) {
-      throw new Error(parsed.error.errors[0].message);
-    }
-    // ... resto do codigo
-  },
-});
-```
-
----
-
-## 4. Cache e Performance
-
-### 4.1 Configurar staleTime Global
-
-```typescript
-// src/main.tsx ou App.tsx
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutos
-      gcTime: 1000 * 60 * 30, // 30 minutos (anteriormente cacheTime)
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
-```
-
-### 4.2 staleTime Especifico por Query
-
-| Query | staleTime | Razao |
-|-------|-----------|-------|
-| posts | 30 segundos | Conteudo social, atualiza frequente |
-| comments | 30 segundos | Mesmo do posts |
-| goals | 5 minutos | Metas raramente mudam |
-| habits-today | 1 minuto | Rastreamento diario |
-| notifications | 30 segundos | Importante ver novas |
-| check-ins | 1 minuto | Frequencia real |
-| profiles | 10 minutos | Dados estaticos do usuario |
-
-### 4.3 Implementar nos Hooks
-
-```typescript
-// useGoals.ts
-const { data: goals } = useQuery({
-  queryKey: ["goals", user?.id],
-  queryFn: async () => { ... },
-  staleTime: 1000 * 60 * 5, // 5 minutos
-});
-
-// usePosts.ts
-const { data } = useInfiniteQuery({
-  queryKey: ["posts"],
-  queryFn: async () => { ... },
-  staleTime: 1000 * 30, // 30 segundos
-});
-```
-
----
-
-## 5. Sanitizacao de Dados
-
-### 5.1 Criar Funcao de Sanitizacao
-
-```typescript
-// src/lib/sanitize.ts
-export const sanitizeText = (text: string): string => {
-  return text
-    .trim()
-    .replace(/\s+/g, ' ') // Multiple spaces to single
-    .replace(/<[^>]*>/g, ''); // Remove HTML tags
-};
-
-export const sanitizeNumber = (
-  value: string | number | undefined, 
-  min: number, 
-  max: number
-): number | null => {
-  if (value === undefined || value === '') return null;
-  const num = Number(value);
-  if (isNaN(num)) return null;
-  return Math.min(Math.max(num, min), max);
-};
-```
-
-### 5.2 Aplicar em ProfileModal.tsx
-
-```typescript
-const handleSave = async () => {
-  const sanitizedData = {
-    name: sanitizeText(formData.name),
-    age: sanitizeNumber(formData.age, 13, 120),
-    weight: sanitizeNumber(formData.weight, 20, 500),
-    height: sanitizeNumber(formData.height, 50, 300),
-    // ...
-  };
-  
-  const result = profileSchema.safeParse(sanitizedData);
-  if (!result.success) {
-    toast.error(result.error.errors[0].message);
-    return;
+const logger = {
+  error: (...args) => {
+    if (import.meta.env.DEV) console.error(...args);
+    // Em prod: enviar para servico de monitoramento
   }
-  
-  await updateProfile(result.data);
 };
 ```
 
 ---
 
-## 6. Arquivos a Criar
+## MEDIO - Importante mas nao bloqueante
 
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/lib/validations.ts` | Esquemas Zod centralizados |
-| `src/lib/sanitize.ts` | Funcoes de sanitizacao |
+### 9. Equipamentos sem gym_id
 
----
+**Problema**: Todos os 12 equipamentos no banco tem `gym_id: null`, impedindo a validacao de QR Code que verifica se o equipamento pertence a academia.
 
-## 7. Arquivos a Modificar
-
-| Arquivo | Mudancas |
-|---------|----------|
-| `src/App.tsx` | Configurar QueryClient global |
-| `src/hooks/usePosts.ts` | Adicionar validacao + staleTime |
-| `src/hooks/useComments.ts` | Adicionar validacao + staleTime |
-| `src/hooks/useGoals.ts` | Adicionar staleTime |
-| `src/hooks/useHabits.ts` | Adicionar staleTime |
-| `src/hooks/useCheckIn.ts` | Adicionar staleTime |
-| `src/hooks/useNotifications.ts` | Adicionar staleTime |
-| `src/components/modals/PostModal.tsx` | Validacao de conteudo |
-| `src/components/modals/ProfileModal.tsx` | Validacao completa |
-| `src/components/modals/CommentsModal.tsx` | Validacao de comentario |
-| `src/components/modals/GoalModal.tsx` | Validacao de meta |
-| `src/components/ImageUpload.tsx` | Validacao refinada |
-
----
-
-## 8. Migracoes SQL
-
-### 8.1 Corrigir RLS de Profiles
-
+**Query de Verificacao**:
 ```sql
--- Permitir que usuarios autenticados vejam informacoes basicas de perfil
--- Isso e necessario para funcionalidades sociais (ver autor de posts)
-CREATE POLICY "Authenticated users can view profiles for social features"
-ON public.profiles FOR SELECT
-TO authenticated
-USING (true);
+SELECT id, name, gym_id FROM equipment;
+-- Todos retornam gym_id = NULL
 ```
 
-Nota: A politica atual "Users can view own profile" so permite ver o proprio perfil, 
-o que impede de ver autores de posts. A tabela profiles nao contem dados altamente 
-sensiveis (sem senhas, tokens, etc), entao e seguro permitir leitura.
+**Solucao**: Atualizar equipamentos com gym_id correto ou ajustar logica de validacao.
+
+### 10. Localizacao GPS Precisa Exposta
+
+**Problema**: A tabela `check_ins` armazena coordenadas GPS precisas (lat/lng) dos usuarios. Dados de localizacao sao sensiveis pela LGPD.
+
+**Consideracoes**:
+- Avaliar se precisa da precisao total ou se pode truncar (ex: 2 casas decimais)
+- Implementar retencao de dados (deletar check-ins antigos)
+- Adicionar consentimento explicito do usuario
+
+### 11. Falta Tratamento de Estado Offline
+
+**Problema**: O app nao trata cenarios de conexao lenta ou offline. Usuarios podem perder dados.
+
+**Solucao**:
+- Adicionar indicador de status de conexao
+- Implementar queue de acoes para sincronizar quando online
+- Mostrar mensagens claras quando offline
+
+### 12. Pagina 404 Nao Estilizada
+
+**Problema**: A pagina NotFound.tsx usa estilo generico (`bg-muted`) que nao combina com o design do app.
+
+**Solucao**: Estilizar com wemovelt-gradient e manter identidade visual.
 
 ---
 
-## 9. Ordem de Implementacao
+## BAIXO - Melhorias desejadas
 
-1. **Migracao SQL**: Corrigir politicas RLS
-2. **src/lib/validations.ts**: Criar esquemas Zod centralizados
-3. **src/lib/sanitize.ts**: Criar funcoes de sanitizacao
-4. **src/App.tsx**: Configurar cache global do QueryClient
-5. **Hooks**: Adicionar validacao e staleTime em todos os hooks
-6. **Modals**: Integrar validacao Zod nos formularios
-7. **ImageUpload**: Refinar validacao de arquivos
-8. **Testes**: Verificar fluxos com dados invalidos
+### 13. Falta Loading Skeleton em Algumas Telas
+
+**Problema**: Algumas telas mostram estado de loading generico ou nenhum.
+
+**Exemplos**:
+- Habitos.tsx mostra apenas texto quando carregando
+- Home.tsx nao tem skeleton para dados de frequencia
+
+### 14. PWA/Instalacao Nao Configurada
+
+**Problema**: O app nao pode ser instalado como PWA porque falta:
+- manifest.json
+- Service Worker
+- Icons em varios tamanhos
+
+**Beneficio**: Usuarios poderiam instalar o app no celular como app nativo.
+
+### 15. Falta Confirmacao de Acoes Destrutivas
+
+**Problema**: Algumas acoes destrutivas (deletar post, deletar meta) nao pedem confirmacao.
+
+**Solucao**: Adicionar dialogo de confirmacao antes de acoes irreversiveis.
+
+### 16. Falta Feedback de Operacoes Lentas
+
+**Problema**: Algumas operacoes podem demorar (upload de imagem, criar post com imagem) sem feedback visual adequado.
+
+**Solucao**: Garantir que todas as operacoes async tenham indicadores de loading.
+
+### 17. Acessibilidade
+
+**Problema**: Verificar se todos os elementos interativos tem:
+- Labels apropriados para screen readers
+- Contraste de cores adequado
+- Navegacao por teclado
 
 ---
 
-## 10. Checklist de Seguranca
+## Dados de Seed Necessarios
 
-Apos implementacao, o projeto tera:
+### 18. Dados de Equipamentos Incompletos
 
-- [x] RLS em todas as tabelas
-- [x] Politicas restritivas (nao permissivas `true` desnecessarias)
-- [x] Validacao Zod em todos os inputs do usuario
-- [x] Sanitizacao de texto antes de salvar
-- [x] Limites de tamanho em campos de texto
-- [x] Validacao de tipos de arquivo para uploads
-- [x] Limite de tamanho de arquivo (5MB)
-- [x] Cache otimizado para reducao de queries
-- [x] Protecao contra senhas vazadas habilitada
+**Problema**: Os 12 equipamentos no banco nao tem:
+- `image_url` (imagens dos equipamentos)
+- `video_url` (videos demonstrativos)
+- `description` (descricao de uso)
+- `qr_code` (codigos QR)
+- `gym_id` (associacao com academia)
+
+**Impacto**: 
+- VideoPlayer mostra "Video nao disponivel"
+- Cards de equipamento mostram icone generico
+- QR Code check-in nao funciona (equipment nao vinculado a gym)
 
 ---
 
-## Resultado Esperado
+## Checklist de Lancamento
 
-Apos implementacao:
+```text
+[ ] Resolver politica RLS em notifications
+[ ] Habilitar leaked password protection
+[ ] Implementar ErrorBoundary
+[ ] Completar meta tags e SEO
+[ ] Criar paginas de Termos e Privacidade
+[ ] Vincular equipamentos a academias
+[ ] Popular dados de equipamentos (imagens, videos)
+[ ] Remover ou condicionar console.logs
+[ ] Implementar DailyWorkout com dados reais
+[ ] Funcionalizar ou remover SettingsModal
+[ ] Testar fluxo completo de check-in (QR e Geo)
+[ ] Testar notificacoes (curtir/comentar)
+[ ] Testar criacao de treino e execucao
+[ ] Estilizar pagina 404
+[ ] Configurar dominio customizado
+[ ] Publicar app
+```
 
-1. Notificacoes so podem ser criadas por triggers/funcoes do sistema
-2. Posts e comentarios mostram nome/avatar do autor corretamente
-3. Todos os formularios validam input antes de enviar
-4. Textos sao sanitizados removendo HTML e espacos extras
-5. Uploads sao validados por tipo e tamanho
-6. Cache reduz requisicoes desnecessarias ao banco
-7. Senhas fracas e vazadas sao rejeitadas no cadastro
+---
+
+## Resumo por Prioridade
+
+| Prioridade | Quantidade | Descricao |
+|------------|------------|-----------|
+| CRITICO | 3 | RLS, senhas vazadas, ErrorBoundary |
+| ALTO | 5 | Treino do dia, Settings, Termos, SEO, Console.logs |
+| MEDIO | 4 | Equipamentos, GPS, Offline, 404 |
+| BAIXO | 5 | Loading, PWA, Confirmacao, Feedback, Acessibilidade |
+
+---
+
+## Proximo Passo Recomendado
+
+Sugiro resolver primeiro os **3 itens CRITICOS** e depois os **5 itens ALTOS**, totalizando 8 correcoes essenciais para um lancamento seguro em producao.
+
+Posso implementar essas correcoes em ordem de prioridade. Quer que eu comece pelos itens criticos?
+
