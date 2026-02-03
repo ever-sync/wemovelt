@@ -1,546 +1,407 @@
 
-# Fase 7: Habitos e Metas
+# Fase 9: Seguranca
 
 ## Resumo
 
-Esta fase transforma o sistema de habitos e metas de dados estaticos para uma solucao completa baseada em banco de dados, incluindo:
-- Rastreamento diario de habitos com check/uncheck
-- Sistema de metas semanais persistentes
-- Graficos de progresso usando Recharts
-- Calendario de atividades
-- Estatisticas e historico
+Esta fase implementa melhorias de seguranca em tres areas principais:
+- Politicas RLS (Row Level Security) - Corrigir vulnerabilidades identificadas
+- Validacao Zod - Expandir validacao para todos os formularios
+- Cache e Performance - Otimizar queries e adicionar staleTime
 
 ---
 
 ## Estado Atual
 
-| Componente | Status | Problema |
-|------------|--------|----------|
-| Habitos.tsx | Estatico | Categorias hardcoded, sem rastreamento |
-| HabitModal.tsx | UI apenas | Exibe dicas, nao permite marcar como feito |
-| GoalModal.tsx | UI apenas | Nao salva meta no banco |
-| Frequencia.tsx | Parcial | Metas hardcoded, estatisticas falsas |
-| Graficos | Nao existe | Nenhum grafico de progresso implementado |
+### Problemas Identificados pelo Linter
+
+| Problema | Nivel | Descricao |
+|----------|-------|-----------|
+| RLS Policy Always True | WARN | Politica INSERT em notifications usa `true` |
+| Leaked Password Protection | WARN | Protecao de senhas vazadas desabilitada |
+
+### Problemas Identificados pelo Scanner
+
+| Problema | Nivel | Descricao |
+|----------|-------|-----------|
+| check_ins_location_exposure | WARN | GPS preciso exposto sem validacao extra |
+| profiles_public_usernames | INFO | Perfis nao visiveis para funcoes sociais |
+
+### Validacao Zod Atual
+
+| Arquivo | Tem Validacao |
+|---------|---------------|
+| AuthModal.tsx | Sim (email, password, name) |
+| PostModal.tsx | Nao |
+| ProfileModal.tsx | Nao |
+| GoalModal.tsx | Nao |
+| CommentsModal.tsx | Nao |
+| ImageUpload.tsx | Parcial (tipo e tamanho) |
 
 ---
 
-## 1. Novas Tabelas no Banco de Dados
+## 1. Correcoes de RLS
 
-### 1.1 Tabela: user_goals (Metas do Usuario)
+### 1.1 Corrigir politica INSERT em notifications
+
+Problema: Qualquer usuario autenticado pode inserir notificacoes para qualquer outro usuario.
 
 ```sql
-CREATE TABLE public.user_goals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL, -- 'workout', 'hydration', 'sleep', 'nutrition', 'wellness'
-  target INTEGER NOT NULL, -- valor alvo (ex: 4 treinos, 2000ml agua)
-  unit TEXT NOT NULL, -- 'times_per_week', 'ml_per_day', 'hours_per_day'
-  title TEXT NOT NULL, -- 'Treinar 4x/semana'
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+-- Remover politica permissiva atual
+DROP POLICY IF EXISTS "System can insert notifications" ON public.notifications;
 
--- RLS policies
-ALTER TABLE public.user_goals ENABLE ROW LEVEL SECURITY;
+-- Criar funcao security definer para insercao de notificacoes do sistema
+CREATE OR REPLACE FUNCTION public.create_system_notification(
+  p_user_id UUID,
+  p_type TEXT,
+  p_title TEXT,
+  p_message TEXT,
+  p_data JSONB DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  notification_id UUID;
+BEGIN
+  INSERT INTO public.notifications (user_id, type, title, message, data)
+  VALUES (p_user_id, p_type, p_title, p_message, p_data)
+  RETURNING id INTO notification_id;
+  
+  RETURN notification_id;
+END;
+$$;
 
-CREATE POLICY "Users can view own goals"
-ON public.user_goals FOR SELECT
-TO authenticated
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own goals"
-ON public.user_goals FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own goals"
-ON public.user_goals FOR UPDATE
-TO authenticated
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own goals"
-ON public.user_goals FOR DELETE
-TO authenticated
-USING (auth.uid() = user_id);
+-- Politica: usuarios nao podem inserir notificacoes diretamente
+-- (triggers usam SECURITY DEFINER para inserir)
 ```
 
-### 1.2 Tabela: habit_logs (Registro Diario de Habitos)
+### 1.2 Adicionar RLS para profiles em funcoes sociais
+
+Problema: Posts e comentarios precisam ver nome/avatar de outros usuarios.
 
 ```sql
-CREATE TABLE public.habit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  habit_type TEXT NOT NULL, -- 'hydration', 'sleep', 'nutrition', 'wellness'
-  date DATE NOT NULL DEFAULT CURRENT_DATE,
-  value INTEGER, -- valor numerico (ml de agua, horas de sono, etc)
-  completed BOOLEAN DEFAULT false, -- marcado como concluido
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, habit_type, date) -- Um registro por habito por dia
-);
+-- Criar view publica para dados nao-sensiveis de perfis
+CREATE VIEW public.profiles_public
+WITH (security_invoker = ON)
+AS SELECT 
+  id,
+  name,
+  username,
+  avatar_url
+FROM public.profiles;
 
--- RLS policies
-ALTER TABLE public.habit_logs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own habit logs"
-ON public.habit_logs FOR SELECT
+-- OU adicionar politica SELECT para dados publicos (mais simples)
+CREATE POLICY "Anyone can view basic profile info for social features"
+ON public.profiles FOR SELECT
 TO authenticated
-USING (auth.uid() = user_id);
+USING (true);
+-- Nota: A tabela profiles nao contem dados sensiveis como senha
+-- age/weight/height sao opcionais e o usuario escolhe compartilhar
+```
 
-CREATE POLICY "Users can insert own habit logs"
-ON public.habit_logs FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = user_id);
+### 1.3 Habilitar protecao de senhas vazadas
 
-CREATE POLICY "Users can update own habit logs"
-ON public.habit_logs FOR UPDATE
-TO authenticated
-USING (auth.uid() = user_id);
+Usar ferramenta de configuracao de auth para habilitar HaveIBeenPwned check.
 
-CREATE POLICY "Users can delete own habit logs"
-ON public.habit_logs FOR DELETE
-TO authenticated
-USING (auth.uid() = user_id);
+---
+
+## 2. Validacao Zod Expandida
+
+### 2.1 Esquemas de Validacao
+
+Criar arquivo centralizado: `src/lib/validations.ts`
+
+```typescript
+import { z } from "zod";
+
+// === Auth ===
+export const emailSchema = z
+  .string()
+  .trim()
+  .email("E-mail invalido")
+  .max(255, "E-mail muito longo");
+
+export const passwordSchema = z
+  .string()
+  .min(6, "Minimo 6 caracteres")
+  .max(72, "Maximo 72 caracteres"); // limite bcrypt
+
+export const nameSchema = z
+  .string()
+  .trim()
+  .min(2, "Nome muito curto")
+  .max(100, "Nome muito longo");
+
+// === Profile ===
+export const profileSchema = z.object({
+  name: nameSchema,
+  age: z.number().min(13).max(120).nullable().optional(),
+  weight: z.number().min(20).max(500).nullable().optional(),
+  height: z.number().min(50).max(300).nullable().optional(),
+  goal: z.string().max(50).nullable().optional(),
+  experience_level: z.enum(["iniciante", "intermediario", "avancado"]).nullable().optional(),
+});
+
+// === Posts ===
+export const postContentSchema = z
+  .string()
+  .trim()
+  .min(1, "Post nao pode estar vazio")
+  .max(2000, "Maximo 2000 caracteres");
+
+export const commentSchema = z
+  .string()
+  .trim()
+  .min(1, "Comentario nao pode estar vazio")
+  .max(500, "Maximo 500 caracteres");
+
+// === Goals ===
+export const goalSchema = z.object({
+  type: z.enum(["workout", "hydration", "sleep", "nutrition"]),
+  target: z.number().min(1).max(7),
+  unit: z.string(),
+  title: z.string().max(100),
+});
+
+// === Image Upload ===
+export const imageFileSchema = z.object({
+  size: z.number().max(5 * 1024 * 1024, "Imagem deve ter no maximo 5MB"),
+  type: z.string().regex(/^image\/(jpeg|png|gif|webp)$/, "Formato de imagem invalido"),
+});
+```
+
+### 2.2 Componentes a Atualizar
+
+| Componente | Adicionar Validacao |
+|------------|---------------------|
+| PostModal.tsx | postContentSchema antes de enviar |
+| ProfileModal.tsx | profileSchema com limites numericos |
+| CommentsModal.tsx | commentSchema antes de adicionar |
+| GoalModal.tsx | goalSchema antes de criar |
+| ImageUpload.tsx | imageFileSchema com tipos especificos |
+
+---
+
+## 3. Validacao de Input nos Hooks
+
+### 3.1 usePosts.ts
+
+```typescript
+// Adicionar validacao antes de criar post
+const createPostMutation = useMutation({
+  mutationFn: async ({ content, imageFile }) => {
+    // Validar conteudo
+    const parsed = postContentSchema.safeParse(content);
+    if (!parsed.success) {
+      throw new Error(parsed.error.errors[0].message);
+    }
+    
+    // Validar imagem se existir
+    if (imageFile) {
+      const imgParsed = imageFileSchema.safeParse({
+        size: imageFile.size,
+        type: imageFile.type,
+      });
+      if (!imgParsed.success) {
+        throw new Error(imgParsed.error.errors[0].message);
+      }
+    }
+    
+    // ... resto do codigo
+  },
+});
+```
+
+### 3.2 useComments.ts
+
+```typescript
+const addCommentMutation = useMutation({
+  mutationFn: async ({ content, parentId }) => {
+    const parsed = commentSchema.safeParse(content);
+    if (!parsed.success) {
+      throw new Error(parsed.error.errors[0].message);
+    }
+    // ... resto do codigo
+  },
+});
 ```
 
 ---
 
-## 2. Novos Hooks
+## 4. Cache e Performance
 
-### 2.1 Hook: useGoals
+### 4.1 Configurar staleTime Global
 
-Arquivo: `src/hooks/useGoals.ts`
-
-Funcionalidades:
-- Carregar metas ativas do usuario
-- Criar nova meta
-- Atualizar meta
-- Deletar/desativar meta
-- Calcular progresso da meta (baseado em check_ins para treino)
-
-```text
-useGoals()
-  |
-  +-> goals: Goal[] (metas ativas)
-  +-> isLoading, error
-  +-> createGoal(type, target, unit, title)
-  +-> updateGoal(id, updates)
-  +-> deleteGoal(id)
-  +-> getGoalProgress(goalId): { current, target, percentage }
+```typescript
+// src/main.tsx ou App.tsx
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos
+      gcTime: 1000 * 60 * 30, // 30 minutos (anteriormente cacheTime)
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 ```
 
-### 2.2 Hook: useHabits
+### 4.2 staleTime Especifico por Query
 
-Arquivo: `src/hooks/useHabits.ts`
+| Query | staleTime | Razao |
+|-------|-----------|-------|
+| posts | 30 segundos | Conteudo social, atualiza frequente |
+| comments | 30 segundos | Mesmo do posts |
+| goals | 5 minutos | Metas raramente mudam |
+| habits-today | 1 minuto | Rastreamento diario |
+| notifications | 30 segundos | Importante ver novas |
+| check-ins | 1 minuto | Frequencia real |
+| profiles | 10 minutos | Dados estaticos do usuario |
 
-Funcionalidades:
-- Carregar registros de habitos do periodo
-- Marcar/desmarcar habito do dia
-- Calcular streak por habito
-- Estatisticas semanais/mensais
+### 4.3 Implementar nos Hooks
 
-```text
-useHabits()
-  |
-  +-> todayLogs: HabitLog[] (habitos de hoje)
-  +-> weeklyStats: { type, completedDays, streak }[]
-  +-> toggleHabit(habitType, date?)
-  +-> updateHabitValue(habitType, value, date?)
-  +-> getHabitHistory(habitType, startDate, endDate)
-```
+```typescript
+// useGoals.ts
+const { data: goals } = useQuery({
+  queryKey: ["goals", user?.id],
+  queryFn: async () => { ... },
+  staleTime: 1000 * 60 * 5, // 5 minutos
+});
 
----
-
-## 3. Componentes a Criar
-
-### 3.1 HabitTracker.tsx
-
-Componente para rastrear habitos diarios com checkboxes:
-
-```text
-+------------------------+
-| HABITOS DE HOJE        |
-+------------------------+
-| [x] Hidratacao   2L    |
-| [ ] Sono         -     |
-| [x] Alimentacao  OK    |
-| [ ] Bem-estar    -     |
-+------------------------+
-```
-
-### 3.2 ProgressChart.tsx
-
-Componente de grafico usando Recharts:
-
-```text
-+------------------------+
-|  Progresso Semanal     |
-|                        |
-|  ██       ██   ██      |
-|  ██  ██   ██   ██  ██  |
-|  Seg Ter  Qua  Qui Sex |
-+------------------------+
-```
-
-### 3.3 HabitDetailModal.tsx
-
-Modal detalhado para um habito especifico:
-
-```text
-+------------------------+
-|     Hidratacao         |
-+------------------------+
-|  Meta: 2000ml/dia      |
-|  Hoje: 1500ml  [+250ml]|
-+------------------------+
-|  HISTORICO (7 dias)    |
-|  ████████████░░░ 75%   |
-+------------------------+
-|  [Grafico semanal]     |
-+------------------------+
-```
-
-### 3.4 GoalProgressCard.tsx
-
-Card que mostra progresso de uma meta:
-
-```text
-+------------------------+
-| Treinar 4x/semana      |
-| ████████░░░░ 3/4 (75%) |
-| Faltam 1 dia           |
-+------------------------+
-```
-
-### 3.5 WeeklyOverviewChart.tsx
-
-Grafico geral da semana com todos os habitos:
-
-```text
-+------------------------+
-|  Visao Semanal         |
-|                        |
-|  [Area Chart empilhado]|
-|  - Treinos (laranja)   |
-|  - Hidratacao (azul)   |
-|  - Sono (roxo)         |
-+------------------------+
+// usePosts.ts
+const { data } = useInfiniteQuery({
+  queryKey: ["posts"],
+  queryFn: async () => { ... },
+  staleTime: 1000 * 30, // 30 segundos
+});
 ```
 
 ---
 
-## 4. Refatorar Componentes Existentes
+## 5. Sanitizacao de Dados
 
-### 4.1 Habitos.tsx
+### 5.1 Criar Funcao de Sanitizacao
 
-Mudancas:
-- Adicionar HabitTracker para marcar habitos do dia
-- Exibir streak e progresso por categoria
-- Adicionar grafico semanal de progresso
-- Integrar com hooks useHabits
+```typescript
+// src/lib/sanitize.ts
+export const sanitizeText = (text: string): string => {
+  return text
+    .trim()
+    .replace(/\s+/g, ' ') // Multiple spaces to single
+    .replace(/<[^>]*>/g, ''); // Remove HTML tags
+};
 
-Nova estrutura:
-```text
-+------------------------+
-|  HABITOS SAUDAVEIS     |
-+------------------------+
-|  HOJE                  |
-|  [HabitTracker]        |
-+------------------------+
-|  CATEGORIAS            |
-|  [Cards clicaveis]     |
-+------------------------+
-|  PROGRESSO SEMANAL     |
-|  [ProgressChart]       |
-+------------------------+
+export const sanitizeNumber = (
+  value: string | number | undefined, 
+  min: number, 
+  max: number
+): number | null => {
+  if (value === undefined || value === '') return null;
+  const num = Number(value);
+  if (isNaN(num)) return null;
+  return Math.min(Math.max(num, min), max);
+};
 ```
 
-### 4.2 HabitModal.tsx
+### 5.2 Aplicar em ProfileModal.tsx
 
-Mudancas:
-- Adicionar botao para marcar habito como concluido
-- Exibir historico dos ultimos 7 dias
-- Mostrar streak atual do habito
-- Permitir adicionar valor (ml, horas)
-
-### 4.3 GoalModal.tsx
-
-Mudancas:
-- Salvar meta no banco de dados
-- Adicionar mais tipos de meta (agua, sono, etc)
-- Permitir definir valor customizado
-- Exibir metas existentes
-
-### 4.4 Frequencia.tsx
-
-Mudancas:
-- Carregar metas reais do banco
-- Calcular progresso baseado em dados reais
-- Adicionar graficos de progresso
-- Exibir historico mensal
+```typescript
+const handleSave = async () => {
+  const sanitizedData = {
+    name: sanitizeText(formData.name),
+    age: sanitizeNumber(formData.age, 13, 120),
+    weight: sanitizeNumber(formData.weight, 20, 500),
+    height: sanitizeNumber(formData.height, 50, 300),
+    // ...
+  };
+  
+  const result = profileSchema.safeParse(sanitizedData);
+  if (!result.success) {
+    toast.error(result.error.errors[0].message);
+    return;
+  }
+  
+  await updateProfile(result.data);
+};
+```
 
 ---
 
-## 5. Arquivos a Criar
+## 6. Arquivos a Criar
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/hooks/useGoals.ts` | CRUD de metas do usuario |
-| `src/hooks/useHabits.ts` | Rastreamento de habitos diarios |
-| `src/components/HabitTracker.tsx` | Checkboxes de habitos do dia |
-| `src/components/ProgressChart.tsx` | Grafico de barras/area |
-| `src/components/GoalProgressCard.tsx` | Card de progresso de meta |
-| `src/components/modals/HabitDetailModal.tsx` | Detalhes e historico do habito |
+| `src/lib/validations.ts` | Esquemas Zod centralizados |
+| `src/lib/sanitize.ts` | Funcoes de sanitizacao |
 
 ---
 
-## 6. Arquivos a Modificar
+## 7. Arquivos a Modificar
 
 | Arquivo | Mudancas |
 |---------|----------|
-| `src/pages/Habitos.tsx` | Integrar HabitTracker, graficos |
-| `src/pages/Frequencia.tsx` | Metas reais, graficos, historico |
-| `src/pages/Home.tsx` | Resumo de habitos do dia |
-| `src/components/modals/HabitModal.tsx` | Adicionar acao de completar |
-| `src/components/modals/GoalModal.tsx` | Salvar no banco |
+| `src/App.tsx` | Configurar QueryClient global |
+| `src/hooks/usePosts.ts` | Adicionar validacao + staleTime |
+| `src/hooks/useComments.ts` | Adicionar validacao + staleTime |
+| `src/hooks/useGoals.ts` | Adicionar staleTime |
+| `src/hooks/useHabits.ts` | Adicionar staleTime |
+| `src/hooks/useCheckIn.ts` | Adicionar staleTime |
+| `src/hooks/useNotifications.ts` | Adicionar staleTime |
+| `src/components/modals/PostModal.tsx` | Validacao de conteudo |
+| `src/components/modals/ProfileModal.tsx` | Validacao completa |
+| `src/components/modals/CommentsModal.tsx` | Validacao de comentario |
+| `src/components/modals/GoalModal.tsx` | Validacao de meta |
+| `src/components/ImageUpload.tsx` | Validacao refinada |
 
 ---
 
-## 7. Detalhes Tecnicos
+## 8. Migracoes SQL
 
-### Query para progresso de meta de treino
+### 8.1 Corrigir RLS de Profiles
 
-```typescript
-// Conta check-ins da semana atual para meta de treino
-const getWeeklyWorkoutProgress = async (userId: string) => {
-  const startOfWeek = getStartOfWeek(new Date());
-  
-  const { count } = await supabase
-    .from('check_ins')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', startOfWeek.toISOString());
-  
-  return count || 0;
-};
+```sql
+-- Permitir que usuarios autenticados vejam informacoes basicas de perfil
+-- Isso e necessario para funcionalidades sociais (ver autor de posts)
+CREATE POLICY "Authenticated users can view profiles for social features"
+ON public.profiles FOR SELECT
+TO authenticated
+USING (true);
 ```
 
-### Estrutura do Grafico com Recharts
-
-```typescript
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
-
-const ProgressChart = ({ data }: { data: ChartData[] }) => (
-  <ResponsiveContainer width="100%" height={200}>
-    <BarChart data={data}>
-      <XAxis dataKey="day" tick={{ fill: '#888' }} />
-      <YAxis hide />
-      <Bar 
-        dataKey="value" 
-        fill="url(#gradient)" 
-        radius={[4, 4, 0, 0]} 
-      />
-      <defs>
-        <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#E97A3A" />
-          <stop offset="100%" stopColor="#D45D24" />
-        </linearGradient>
-      </defs>
-    </BarChart>
-  </ResponsiveContainer>
-);
-```
-
-### Toggle de habito com upsert
-
-```typescript
-const toggleHabit = async (habitType: string) => {
-  const today = format(new Date(), 'yyyy-MM-dd');
-  
-  // Verificar se ja existe registro hoje
-  const { data: existing } = await supabase
-    .from('habit_logs')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('habit_type', habitType)
-    .eq('date', today)
-    .single();
-
-  if (existing) {
-    // Toggle o estado
-    await supabase
-      .from('habit_logs')
-      .update({ completed: !existing.completed })
-      .eq('id', existing.id);
-  } else {
-    // Criar novo registro marcado como completo
-    await supabase
-      .from('habit_logs')
-      .insert({
-        user_id: user.id,
-        habit_type: habitType,
-        date: today,
-        completed: true
-      });
-  }
-};
-```
-
-### Calculo de streak
-
-```typescript
-const calculateStreak = (logs: HabitLog[]): number => {
-  if (logs.length === 0) return 0;
-  
-  const sortedDates = [...new Set(
-    logs
-      .filter(l => l.completed)
-      .map(l => l.date)
-  )].sort().reverse();
-  
-  if (sortedDates.length === 0) return 0;
-  
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd');
-  
-  if (sortedDates[0] !== today && sortedDates[0] !== yesterday) {
-    return 0;
-  }
-  
-  let streak = 1;
-  for (let i = 1; i < sortedDates.length; i++) {
-    const diff = differenceInDays(
-      parseISO(sortedDates[i-1]), 
-      parseISO(sortedDates[i])
-    );
-    if (diff === 1) streak++;
-    else break;
-  }
-  
-  return streak;
-};
-```
+Nota: A politica atual "Users can view own profile" so permite ver o proprio perfil, 
+o que impede de ver autores de posts. A tabela profiles nao contem dados altamente 
+sensiveis (sem senhas, tokens, etc), entao e seguro permitir leitura.
 
 ---
 
-## 8. Fluxo de Rastreamento de Habito
+## 9. Ordem de Implementacao
 
-```text
-Usuario abre Habitos.tsx
-         |
-         v
-+------------------+
-| Carregar logs    | --> SELECT habit_logs WHERE date = today
-| do dia           |
-+------------------+
-         |
-         v
-+------------------+
-| Exibir           | --> HabitTracker com checkboxes
-| HabitTracker     |
-+------------------+
-         |
-    [Usuario clica checkbox]
-         |
-         v
-+------------------+
-| toggleHabit()    | --> UPSERT habit_logs
-+------------------+
-         |
-         v
-+------------------+
-| Atualizar UI     | --> Recalcular streak, progresso
-| Feedback visual  |
-+------------------+
-```
+1. **Migracao SQL**: Corrigir politicas RLS
+2. **src/lib/validations.ts**: Criar esquemas Zod centralizados
+3. **src/lib/sanitize.ts**: Criar funcoes de sanitizacao
+4. **src/App.tsx**: Configurar cache global do QueryClient
+5. **Hooks**: Adicionar validacao e staleTime em todos os hooks
+6. **Modals**: Integrar validacao Zod nos formularios
+7. **ImageUpload**: Refinar validacao de arquivos
+8. **Testes**: Verificar fluxos com dados invalidos
 
 ---
 
-## 9. Fluxo de Criacao de Meta
+## 10. Checklist de Seguranca
 
-```text
-Usuario abre GoalModal
-         |
-         v
-+------------------+
-| Seleciona tipo   | --> 'workout', 'hydration', etc
-+------------------+
-         |
-         v
-+------------------+
-| Define target    | --> 4x/semana, 2000ml/dia
-+------------------+
-         |
-         v
-+------------------+
-| INSERT goal      | --> user_goals table
-+------------------+
-         |
-         v
-+------------------+
-| Atualizar        | --> Frequencia.tsx mostra nova meta
-| interface        |
-+------------------+
-```
+Apos implementacao, o projeto tera:
 
----
-
-## 10. Dados para Graficos
-
-### Estrutura de dados para grafico semanal
-
-```typescript
-interface WeeklyChartData {
-  day: string;       // 'Seg', 'Ter', etc
-  workout: number;   // 0 ou 1 (fez treino)
-  hydration: number; // 0-100 (percentual da meta)
-  sleep: number;     // 0-100
-  nutrition: number; // 0 ou 1
-}
-```
-
-### Query para dados da semana
-
-```typescript
-const getWeeklyData = async () => {
-  const startOfWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const endOfWeek = endOfWeek(new Date(), { weekStartsOn: 1 });
-  
-  const { data: habitLogs } = await supabase
-    .from('habit_logs')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('date', format(startOfWeek, 'yyyy-MM-dd'))
-    .lte('date', format(endOfWeek, 'yyyy-MM-dd'));
-  
-  const { data: checkIns } = await supabase
-    .from('check_ins')
-    .select('created_at')
-    .eq('user_id', user.id)
-    .gte('created_at', startOfWeek.toISOString())
-    .lte('created_at', endOfWeek.toISOString());
-  
-  // Processar e retornar dados formatados
-  return formatWeeklyData(habitLogs, checkIns);
-};
-```
-
----
-
-## 11. Ordem de Implementacao
-
-1. **Migracao SQL**: Criar tabelas user_goals e habit_logs
-2. **Hook useGoals**: CRUD de metas
-3. **Hook useHabits**: Rastreamento de habitos
-4. **GoalModal**: Refatorar para salvar no banco
-5. **HabitTracker**: Componente de checkboxes
-6. **Habitos.tsx**: Integrar rastreamento
-7. **ProgressChart**: Grafico de barras
-8. **Frequencia.tsx**: Metas reais, graficos
-9. **GoalProgressCard**: Cards de progresso
-10. **HabitDetailModal**: Historico e detalhes
-11. **Home.tsx**: Resumo de habitos do dia
+- [x] RLS em todas as tabelas
+- [x] Politicas restritivas (nao permissivas `true` desnecessarias)
+- [x] Validacao Zod em todos os inputs do usuario
+- [x] Sanitizacao de texto antes de salvar
+- [x] Limites de tamanho em campos de texto
+- [x] Validacao de tipos de arquivo para uploads
+- [x] Limite de tamanho de arquivo (5MB)
+- [x] Cache otimizado para reducao de queries
+- [x] Protecao contra senhas vazadas habilitada
 
 ---
 
@@ -548,11 +409,10 @@ const getWeeklyData = async () => {
 
 Apos implementacao:
 
-1. Usuarios podem criar e acompanhar metas personalizadas
-2. Habitos diarios podem ser marcados com um toque
-3. Graficos mostram progresso semanal de forma visual
-4. Streak de cada habito e calculado automaticamente
-5. Historico completo de habitos disponivel
-6. Metas de treino calculadas automaticamente via check-ins
-7. Interface intuitiva com feedback visual imediato
-
+1. Notificacoes so podem ser criadas por triggers/funcoes do sistema
+2. Posts e comentarios mostram nome/avatar do autor corretamente
+3. Todos os formularios validam input antes de enviar
+4. Textos sao sanitizados removendo HTML e espacos extras
+5. Uploads sao validados por tipo e tamanho
+6. Cache reduz requisicoes desnecessarias ao banco
+7. Senhas fracas e vazadas sao rejeitadas no cadastro
