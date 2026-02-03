@@ -14,7 +14,182 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      check_ins: {
+        Row: {
+          created_at: string | null
+          equipment_id: string | null
+          gym_id: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          method: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          equipment_id?: string | null
+          gym_id?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          method: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          equipment_id?: string | null
+          gym_id?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          method?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          gym_id: string | null
+          id: string
+          image_url: string | null
+          muscles: string[] | null
+          name: string
+          qr_code: string | null
+          video_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          gym_id?: string | null
+          id?: string
+          image_url?: string | null
+          muscles?: string[] | null
+          name: string
+          qr_code?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          gym_id?: string | null
+          id?: string
+          image_url?: string | null
+          muscles?: string[] | null
+          name?: string
+          qr_code?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gyms: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          equipment_count: number | null
+          id: string
+          image_url: string | null
+          lat: number | null
+          lng: number | null
+          name: string
+          radius: number | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          equipment_count?: number | null
+          id?: string
+          image_url?: string | null
+          lat?: number | null
+          lng?: number | null
+          name: string
+          radius?: number | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          equipment_count?: number | null
+          id?: string
+          image_url?: string | null
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          radius?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          age: number | null
+          avatar_url: string | null
+          created_at: string | null
+          experience_level: string | null
+          goal: string | null
+          height: number | null
+          id: string
+          name: string
+          updated_at: string | null
+          username: string | null
+          weight: number | null
+        }
+        Insert: {
+          age?: number | null
+          avatar_url?: string | null
+          created_at?: string | null
+          experience_level?: string | null
+          goal?: string | null
+          height?: number | null
+          id: string
+          name: string
+          updated_at?: string | null
+          username?: string | null
+          weight?: number | null
+        }
+        Update: {
+          age?: number | null
+          avatar_url?: string | null
+          created_at?: string | null
+          experience_level?: string | null
+          goal?: string | null
+          height?: number | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          username?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
