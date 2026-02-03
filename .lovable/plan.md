@@ -1,84 +1,145 @@
 
-# Plano: Corrigir Visualizacao de Nome e Foto na Timeline
+# Plano: Adicionar Botao de Instalar PWA no Modal de Ajuda
 
-## Problema Identificado
+## Objetivo
 
-A view `profiles_public` foi criada com `security_invoker=on`, o que faz com que ela herde as politicas RLS da tabela base `profiles`. Como a tabela profiles tem a politica:
+Adicionar um botao dentro do modal de Ajuda que permite aos usuarios instalar o WEMOVELT como um app no celular (PWA).
 
-```sql
-"Users can view own profile" - USING (auth.uid() = id)
+## Como Funciona a Instalacao PWA
+
+O navegador dispara um evento `beforeinstallprompt` quando o app atende aos criterios de PWA. Precisamos:
+
+1. Capturar esse evento antes que ele seja usado
+2. Guardar a referencia para usar quando o usuario clicar no botao
+3. Mostrar o botao apenas quando a instalacao estiver disponivel
+4. Esconder o botao se o app ja estiver instalado
+
+## Implementacao
+
+### 1. Criar Hook `usePWAInstall`
+
+Novo arquivo: `src/hooks/usePWAInstall.ts`
+
+```typescript
+// Hook que gerencia o estado de instalacao do PWA
+// - Captura evento beforeinstallprompt
+// - Detecta se ja esta instalado (display-mode: standalone)
+// - Expoe funcao promptInstall() e estado canInstall
 ```
 
-Quando um usuario tenta ver o perfil de **outro** usuario na timeline, a consulta retorna vazio porque a RLS bloqueia o acesso.
+**Funcionalidades:**
+- `canInstall`: boolean - indica se o botao deve aparecer
+- `isInstalled`: boolean - indica se ja esta instalado
+- `promptInstall()`: funcao que dispara o prompt de instalacao
 
-### Evidencia
+### 2. Atualizar HelpModal
 
-Requisicao na timeline:
+Arquivo: `src/components/modals/HelpModal.tsx`
+
+**Mudancas:**
+- Importar hook `usePWAInstall`
+- Adicionar botao "Instalar App" com icone `Download`
+- Botao aparece apenas quando `canInstall` e true
+- Se ja instalado, mostra badge "Instalado" ao inves do botao
+
+### Layout do Botao
+
 ```
-GET profiles_public?id=in.(0621ecca-bc12-4c59-aa23-f316337f9d65)
-Response: [] (vazio)
-```
-
-Mas os dados existem:
-```
-SELECT * FROM profiles_public → 3 registros encontrados
-```
-
-A diferenca e que a query de debug usa service role (bypassa RLS), enquanto o frontend usa anon key (respeita RLS).
-
----
-
-## Solucao
-
-Recriar a view `profiles_public` **SEM** `security_invoker` para que ela seja acessivel publicamente, ja que contem apenas dados nao sensiveis (nome, username, avatar).
-
-### SQL Necessario
-
-```sql
--- Remover a view existente
-DROP VIEW IF EXISTS public.profiles_public;
-
--- Recriar sem security_invoker (usa SECURITY DEFINER por padrao)
-CREATE VIEW public.profiles_public AS
-SELECT 
-  id,
-  name,
-  username,
-  avatar_url
-FROM public.profiles;
-
--- Garantir que usuarios autenticados possam acessar
-GRANT SELECT ON public.profiles_public TO authenticated;
-GRANT SELECT ON public.profiles_public TO anon;
++------------------------------------------+
+|  [Download Icon]  Instalar no celular    |
++------------------------------------------+
 ```
 
----
+- Estilo: Fundo azul (#3B82F6) com icone Download
+- Posicao: Entre os FAQs e os botoes do WhatsApp
+- Texto auxiliar: "Adicione o WEMOVELT a tela inicial"
 
-## Por que e Seguro
+## Experiencia do Usuario
 
-A view `profiles_public` expoe apenas:
-- `id` - UUID publico
-- `name` - Nome de exibicao
-- `username` - Handle publico
-- `avatar_url` - URL da foto
+| Estado | O que aparece |
+|--------|---------------|
+| Navegador suporta e nao instalado | Botao "Instalar no celular" |
+| App ja instalado | Badge "App instalado" (opcional) ou nada |
+| Navegador nao suporta | Botao nao aparece |
+| iOS Safari | Instrucoes manuais (Share > Add to Home Screen) |
 
-Dados sensiveis como `weight`, `age`, `height`, `goal` permanecem protegidos na tabela `profiles` original.
+## Tratamento iOS
 
----
+O Safari iOS nao suporta `beforeinstallprompt`. Para esses usuarios, mostraremos instrucoes manuais:
 
-## Resultado Esperado
+"Para instalar no iPhone: toque em Compartilhar e depois em 'Adicionar a Tela de Inicio'"
 
-Apos a correcao:
-- Timeline mostra nome e foto de todos os usuarios
-- Card de post exibe avatar ou inicial
-- Dados sensiveis continuam protegidos
+## Arquivos a Criar/Modificar
 
----
+| Arquivo | Acao |
+|---------|------|
+| `src/hooks/usePWAInstall.ts` | Criar - hook de instalacao PWA |
+| `src/components/modals/HelpModal.tsx` | Modificar - adicionar botao de instalacao |
 
-## Arquivos Impactados
+## Secao Tecnica
 
-| Tipo | Acao |
-|------|------|
-| Database View | Recriar `profiles_public` sem security_invoker |
-| Codigo | Nenhuma alteracao necessaria |
+### Hook usePWAInstall
 
+```typescript
+import { useState, useEffect } from "react";
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+export function usePWAInstall() {
+  const [deferredPrompt, setDeferredPrompt] = 
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Detecta se ja esta instalado
+    const isStandalone = window.matchMedia(
+      "(display-mode: standalone)"
+    ).matches;
+    setIsInstalled(isStandalone);
+
+    // Captura o evento de instalacao
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+    
+    // Detecta quando foi instalado
+    window.addEventListener("appinstalled", () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+    };
+  }, []);
+
+  const promptInstall = async () => {
+    if (!deferredPrompt) return false;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+    return outcome === "accepted";
+  };
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  return {
+    canInstall: !!deferredPrompt && !isInstalled,
+    isInstalled,
+    isIOS,
+    promptInstall,
+  };
+}
+```
+
+### Deteccao iOS
+
+Como iOS nao suporta `beforeinstallprompt`, o hook detecta iOS para mostrar instrucoes manuais de instalacao.
