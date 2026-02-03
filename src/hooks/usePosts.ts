@@ -28,14 +28,15 @@ export interface Post {
   user_has_liked?: boolean;
 }
 
-// Fetch profile for a user
+// Fetch public profile for a user (uses secure view with only public fields)
 const fetchProfileForUser = async (userId: string): Promise<PostProfile | null> => {
-  const { data } = await supabase
-    .from("profiles")
+  const { data, error } = await supabase
+    .from("profiles_public" as any)
     .select("id, name, username, avatar_url")
     .eq("id", userId)
     .single();
-  return data;
+  if (error || !data) return null;
+  return data as unknown as PostProfile;
 };
 
 export const usePosts = () => {
@@ -70,13 +71,14 @@ export const usePosts = () => {
       // Get unique user IDs
       const userIds = [...new Set(posts.map((p) => p.user_id))];
       
-      // Fetch profiles for all users
-      const { data: profiles } = await supabase
-        .from("profiles")
+      // Fetch public profiles for all users (uses secure view)
+      const { data: profilesData } = await supabase
+        .from("profiles_public" as any)
         .select("id, name, username, avatar_url")
         .in("id", userIds);
 
-      const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+      const profiles = (profilesData || []) as unknown as PostProfile[];
+      const profilesMap = new Map(profiles.map((p) => [p.id, p]));
 
       // If user is logged in, check which posts they've liked
       let likedPostIds = new Set<string>();
