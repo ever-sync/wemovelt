@@ -52,13 +52,14 @@ export const useComments = (postId: string | null) => {
       // Get unique user IDs
       const userIds = [...new Set(commentsData.map((c) => c.user_id))];
 
-      // Fetch profiles for all users
-      const { data: profiles } = await supabase
-        .from("profiles")
+      // Fetch public profiles for all users (uses secure view)
+      const { data: profilesData } = await supabase
+        .from("profiles_public" as any)
         .select("id, name, username, avatar_url")
         .in("id", userIds);
 
-      const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+      const profiles = (profilesData || []) as unknown as CommentProfile[];
+      const profilesMap = new Map(profiles.map((p) => [p.id, p]));
 
       return commentsData.map((comment) => ({
         ...comment,
@@ -92,12 +93,14 @@ export const useComments = (postId: string | null) => {
 
       if (error) throw error;
 
-      // Fetch profile for this comment
-      const { data: profile } = await supabase
-        .from("profiles")
+      // Fetch public profile for this comment (uses secure view)
+      const { data: profileData } = await supabase
+        .from("profiles_public" as any)
         .select("id, name, username, avatar_url")
         .eq("id", user.id)
         .single();
+
+      const profile = profileData as unknown as CommentProfile | null;
 
       return { ...data, profiles: profile } as Comment;
     },
