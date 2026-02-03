@@ -197,7 +197,10 @@ const GymForm = ({
     }
 
     // Build full address for GPS navigation
-    const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, ${formData.cep}`;
+    const streetPart = formData.number 
+      ? `${formData.street}, ${formData.number}` 
+      : formData.street;
+    const fullAddress = `${streetPart} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, ${formData.cep}`;
 
     const data = {
       name: formData.name,
@@ -282,7 +285,7 @@ const GymForm = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="number">Número *</Label>
+            <Label htmlFor="number">Número</Label>
             <Input
               id="number"
               value={formData.number}
