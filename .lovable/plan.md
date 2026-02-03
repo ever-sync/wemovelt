@@ -1,145 +1,90 @@
 
-# Plano: Adicionar Botao de Instalar PWA no Modal de Ajuda
 
-## Objetivo
+# Plano: Corrigir Instalação PWA no iOS
 
-Adicionar um botao dentro do modal de Ajuda que permite aos usuarios instalar o WEMOVELT como um app no celular (PWA).
+## Problema Identificado
 
-## Como Funciona a Instalacao PWA
+Os ícones necessários para o PWA **não existem** no projeto:
 
-O navegador dispara um evento `beforeinstallprompt` quando o app atende aos criterios de PWA. Precisamos:
+| Arquivo Esperado | Status |
+|------------------|--------|
+| `/public/icon-192.png` | ❌ Não existe |
+| `/public/icon-512.png` | ❌ Não existe |
+| `/public/og-image.png` | ❌ Não existe |
 
-1. Capturar esse evento antes que ele seja usado
-2. Guardar a referencia para usar quando o usuario clicar no botao
-3. Mostrar o botao apenas quando a instalacao estiver disponivel
-4. Esconder o botao se o app ja estiver instalado
+Sem esses ícones, o PWA não consegue ser instalado corretamente em nenhuma plataforma.
 
-## Implementacao
+## Sobre Instalação no iOS
 
-### 1. Criar Hook `usePWAInstall`
+O Safari no iOS **não suporta** instalação automática via `beforeinstallprompt`. A única forma de instalar é manualmente:
 
-Novo arquivo: `src/hooks/usePWAInstall.ts`
+1. Abrir o Safari
+2. Tocar no ícone de Compartilhar (seta para cima)
+3. Selecionar "Adicionar à Tela de Início"
 
-```typescript
-// Hook que gerencia o estado de instalacao do PWA
-// - Captura evento beforeinstallprompt
-// - Detecta se ja esta instalado (display-mode: standalone)
-// - Expoe funcao promptInstall() e estado canInstall
+A implementação atual já mostra essas instruções para usuários iOS no modal de Ajuda.
+
+## Solução
+
+### 1. Criar os Ícones Necessários
+
+Precisamos criar ícones PNG com o logo do WEMOVELT:
+
+- `icon-192.png` - 192x192 pixels
+- `icon-512.png` - 512x512 pixels
+- `icon-180.png` - 180x180 pixels (específico para iOS)
+- `og-image.png` - 1200x630 pixels (para compartilhamento social)
+
+### 2. Atualizar Configurações iOS
+
+Adicionar ícone específico para iOS no `index.html`:
+
+```html
+<link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
 ```
 
-**Funcionalidades:**
-- `canInstall`: boolean - indica se o botao deve aparecer
-- `isInstalled`: boolean - indica se ja esta instalado
-- `promptInstall()`: funcao que dispara o prompt de instalacao
+### 3. Atualizar Manifest
 
-### 2. Atualizar HelpModal
+Separar os propósitos dos ícones para melhor compatibilidade:
 
-Arquivo: `src/components/modals/HelpModal.tsx`
-
-**Mudancas:**
-- Importar hook `usePWAInstall`
-- Adicionar botao "Instalar App" com icone `Download`
-- Botao aparece apenas quando `canInstall` e true
-- Se ja instalado, mostra badge "Instalado" ao inves do botao
-
-### Layout do Botao
-
-```
-+------------------------------------------+
-|  [Download Icon]  Instalar no celular    |
-+------------------------------------------+
+```json
+"icons": [
+  {
+    "src": "/icon-192.png",
+    "sizes": "192x192",
+    "type": "image/png"
+  },
+  {
+    "src": "/icon-512.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  }
+]
 ```
 
-- Estilo: Fundo azul (#3B82F6) com icone Download
-- Posicao: Entre os FAQs e os botoes do WhatsApp
-- Texto auxiliar: "Adicione o WEMOVELT a tela inicial"
-
-## Experiencia do Usuario
-
-| Estado | O que aparece |
-|--------|---------------|
-| Navegador suporta e nao instalado | Botao "Instalar no celular" |
-| App ja instalado | Badge "App instalado" (opcional) ou nada |
-| Navegador nao suporta | Botao nao aparece |
-| iOS Safari | Instrucoes manuais (Share > Add to Home Screen) |
-
-## Tratamento iOS
-
-O Safari iOS nao suporta `beforeinstallprompt`. Para esses usuarios, mostraremos instrucoes manuais:
-
-"Para instalar no iPhone: toque em Compartilhar e depois em 'Adicionar a Tela de Inicio'"
+---
 
 ## Arquivos a Criar/Modificar
 
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---------|------|
-| `src/hooks/usePWAInstall.ts` | Criar - hook de instalacao PWA |
-| `src/components/modals/HelpModal.tsx` | Modificar - adicionar botao de instalacao |
+| `public/icon-192.png` | Criar - ícone 192x192 |
+| `public/icon-512.png` | Criar - ícone 512x512 |
+| `public/icon-180.png` | Criar - ícone iOS |
+| `public/og-image.png` | Criar - imagem para compartilhamento |
+| `public/manifest.json` | Atualizar - corrigir configuração de ícones |
+| `index.html` | Atualizar - adicionar apple-touch-icon correto |
 
-## Secao Tecnica
+---
 
-### Hook usePWAInstall
+## Instruções para Instalar no iPhone
 
-```typescript
-import { useState, useEffect } from "react";
+Após as correções, o processo no iOS será:
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+1. Abrir o app no **Safari** (não funciona no Chrome iOS)
+2. Tocar no ícone **Compartilhar** (quadrado com seta)
+3. Rolar para baixo e tocar em **"Adicionar à Tela de Início"**
+4. Confirmar o nome e tocar em **"Adicionar"**
 
-export function usePWAInstall() {
-  const [deferredPrompt, setDeferredPrompt] = 
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+O app aparecerá na tela inicial como um ícone normal.
 
-  useEffect(() => {
-    // Detecta se ja esta instalado
-    const isStandalone = window.matchMedia(
-      "(display-mode: standalone)"
-    ).matches;
-    setIsInstalled(isStandalone);
-
-    // Captura o evento de instalacao
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    window.addEventListener("beforeinstallprompt", handler);
-    
-    // Detecta quando foi instalado
-    window.addEventListener("appinstalled", () => {
-      setIsInstalled(true);
-      setDeferredPrompt(null);
-    });
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-    };
-  }, []);
-
-  const promptInstall = async () => {
-    if (!deferredPrompt) return false;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
-      setDeferredPrompt(null);
-    }
-    return outcome === "accepted";
-  };
-
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-  return {
-    canInstall: !!deferredPrompt && !isInstalled,
-    isInstalled,
-    isIOS,
-    promptInstall,
-  };
-}
-```
-
-### Deteccao iOS
-
-Como iOS nao suporta `beforeinstallprompt`, o hook detecta iOS para mostrar instrucoes manuais de instalacao.
