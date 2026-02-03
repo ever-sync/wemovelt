@@ -1,12 +1,22 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import AuthModal from "@/components/modals/AuthModal";
+import { Loader2 } from "lucide-react";
 
 const Welcome = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/home", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleAuth = (mode: "login" | "register") => {
     setAuthMode(mode);
@@ -17,6 +27,14 @@ const Welcome = () => {
     setAuthModalOpen(false);
     navigate("/home");
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen wemovelt-gradient flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen wemovelt-gradient flex flex-col items-center justify-center p-6 relative overflow-hidden">
