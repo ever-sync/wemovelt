@@ -68,13 +68,15 @@ const categories = [
 
 const Habitos = () => {
   const [selectedHabit, setSelectedHabit] = useState<typeof categories[0] | null>(null);
-  const { weeklyStats, isLoading } = useHabits();
+  const { weeklyStats, isLoading, isHabitCompleted } = useHabits();
 
-  // Calculate total completed today
-  const totalCompletedToday = weeklyStats.reduce((acc, stat) => {
-    const todayData = stat.weeklyData[stat.weeklyData.length - 1]; // Last day is today or closest
-    return acc + (todayData?.completed ? 1 : 0);
-  }, 0);
+  // Calculate total completed today using actual today's logs
+  const totalCompletedToday = [
+    "hydration", 
+    "sleep", 
+    "nutrition", 
+    "wellness"
+  ].filter(type => isHabitCompleted(type)).length;
 
   return (
     <div className="min-h-screen bg-background pb-20">
