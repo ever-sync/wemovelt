@@ -1,244 +1,353 @@
+# WEMOVELT - Plano de Implementação para Produção
 
+## Visão Geral
 
-## Plano de Implementação: Sistema de Check-in Real com QR Code
-
-### Visão Geral
-Transformar o modal de check-in visual em um sistema funcional que utiliza a câmera do dispositivo para escanear QR Codes dos equipamentos da academia, validando a presença do usuário.
-
----
-
-### Arquitetura do Sistema
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     FLUXO DE CHECK-IN                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  [Usuário clica Check-in]                                   │
-│           ↓                                                 │
-│  [Escolhe: QR Code ou Geolocalização]                       │
-│           ↓                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐                │
-│  │   QR SCANNER    │    │  GEOLOCATION    │                │
-│  │                 │    │                 │                │
-│  │ • Abre câmera   │    │ • Solicita GPS  │                │
-│  │ • Detecta QR    │    │ • Valida raio   │                │
-│  │ • Valida código │    │ • Confirma gym  │                │
-│  └────────┬────────┘    └────────┬────────┘                │
-│           ↓                      ↓                          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              REGISTRO DO CHECK-IN                    │   │
-│  │  • Salva no localStorage (sem backend)               │   │
-│  │  • Atualiza estado local                             │   │
-│  │  • Exibe mensagem motivacional                       │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+Transformar o protótipo visual em aplicação completa com backend, autenticação e dados persistentes.
 
 ---
 
-### 1. Instalação de Dependência
+## FASE 1: Fundação (Backend + Auth)
+**Prioridade: 🔴 CRÍTICA | Complexidade: Média**
 
-**Biblioteca escolhida:** `@yudiel/react-qr-scanner`
-- Ativamente mantida (última versão há 8 dias)
-- TypeScript nativo
-- Leve e performática
-- Suporte a câmera frontal/traseira
+### 1.1 Ativar Lovable Cloud
+- [ ] Habilitar Cloud no projeto
+- [ ] Configurar Supabase integrado
 
-```bash
-npm install @yudiel/react-qr-scanner
-```
+### 1.2 Estrutura de Banco de Dados
 
----
+```sql
+-- Perfis de usuário
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  username TEXT UNIQUE,
+  avatar_url TEXT,
+  age INTEGER,
+  weight DECIMAL(5,2),
+  height DECIMAL(5,2),
+  goal TEXT, -- 'perder_peso', 'ganhar_massa', 'manter', 'condicionamento'
+  experience_level TEXT, -- 'iniciante', 'intermediario', 'avancado'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-### 2. Novo Componente: QRScanner
+-- Academias
+CREATE TABLE gyms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  address TEXT,
+  lat DECIMAL(10,8),
+  lng DECIMAL(11,8),
+  radius INTEGER DEFAULT 50, -- metros
+  image_url TEXT,
+  equipment_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**Arquivo:** `src/components/QRScanner.tsx`
+-- Equipamentos
+CREATE TABLE equipment (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  gym_id UUID REFERENCES gyms(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT, -- 'peito', 'costas', 'pernas', 'ombros', 'biceps', 'triceps', 'abdomen', 'cardio'
+  description TEXT,
+  muscles TEXT[], -- músculos trabalhados
+  difficulty TEXT, -- 'iniciante', 'intermediario', 'avancado'
+  video_url TEXT,
+  image_url TEXT,
+  qr_code TEXT UNIQUE, -- código único para check-in
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**Funcionalidades:**
-- Renderiza preview da câmera em tempo real
-- Overlay visual com guia de enquadramento
-- Detecção automática de QR Code
-- Callback `onScan(data: string)` ao detectar
-- Callback `onError(error: Error)` para erros
-- Botão para alternar câmera frontal/traseira
-- Botão para ativar/desativar flash (se disponível)
-- Estados visuais: carregando, escaneando, erro
+-- Check-ins
+CREATE TABLE check_ins (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  gym_id UUID REFERENCES gyms(id),
+  equipment_id UUID REFERENCES equipment(id),
+  method TEXT NOT NULL, -- 'qr', 'geo'
+  lat DECIMAL(10,8),
+  lng DECIMAL(11,8),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
----
+-- Treinos salvos
+CREATE TABLE workouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  equipment_ids UUID[],
+  duration_minutes INTEGER,
+  difficulty TEXT,
+  is_favorite BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-### 3. Atualização do CheckInModal
+-- Histórico de treinos
+CREATE TABLE workout_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  workout_id UUID REFERENCES workouts(id),
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  notes TEXT
+);
 
-**Arquivo:** `src/components/modals/CheckInModal.tsx`
+-- Metas
+CREATE TABLE goals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'frequencia', 'peso', 'exercicios'
+  target_value INTEGER,
+  current_value INTEGER DEFAULT 0,
+  start_date DATE DEFAULT CURRENT_DATE,
+  end_date DATE,
+  status TEXT DEFAULT 'ativa', -- 'ativa', 'concluida', 'cancelada'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**Novos estados:**
-```typescript
-type Step = "choose" | "qr-scanning" | "geo-checking" | "success" | "error";
-```
+-- Hábitos
+CREATE TABLE habits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL, -- 'hidratacao', 'sono', 'alimentacao', 'alongamento', 'descanso', 'mental'
+  date DATE DEFAULT CURRENT_DATE,
+  value INTEGER, -- ex: ml de água, horas de sono
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**Fluxo QR Code:**
-1. Usuário clica "Escanear QR Code"
-2. Modal expande para mostrar câmera
-3. Usuário aponta para QR do equipamento
-4. Sistema detecta e valida código
-5. Exibe sucesso com nome do equipamento
+-- Posts da comunidade
+CREATE TABLE posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  image_url TEXT,
+  likes_count INTEGER DEFAULT 0,
+  comments_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**Fluxo Geolocalização:**
-1. Usuário clica "Usar localização"
-2. Sistema solicita permissão de GPS
-3. Valida se está dentro do raio da academia (50m)
-4. Exibe sucesso ou erro de localização
+-- Comentários
+CREATE TABLE comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
----
+-- Curtidas
+CREATE TABLE likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(post_id, user_id)
+);
 
-### 4. Hook Personalizado: useCheckIn
-
-**Arquivo:** `src/hooks/useCheckIn.ts`
-
-**Responsabilidades:**
-- Gerenciar histórico de check-ins no localStorage
-- Calcular sequência de dias (streak)
-- Calcular porcentagem semanal
-- Validar QR Codes (formato esperado)
-- Validar geolocalização (coordenadas das academias)
-
-**Interface:**
-```typescript
-interface CheckIn {
-  id: string;
-  date: string; // ISO date
-  method: "qr" | "geo";
-  gymId?: string;
-  equipmentId?: string;
-}
-
-interface UseCheckInReturn {
-  checkIns: CheckIn[];
-  streak: number;
-  weeklyPercentage: number;
-  todayCheckedIn: boolean;
-  registerCheckIn: (method: "qr" | "geo", data?: string) => void;
-  getWeekData: () => WeekDay[];
-}
-```
-
----
-
-### 5. Validação de QR Codes
-
-**Formato esperado do QR:**
-```
-wemovelt://gym/{gymId}/equipment/{equipmentId}
-```
-
-**Exemplo:**
-```
-wemovelt://gym/zona-sul-01/equipment/puxada-alta
-```
-
-**Validação:**
-- Verificar prefixo `wemovelt://`
-- Extrair gymId e equipmentId
-- Validar contra lista de academias/equipamentos cadastrados
-
----
-
-### 6. Validação de Geolocalização
-
-**Academias cadastradas (mock):**
-```typescript
-const GYMS = [
-  { id: "zona-sul-01", name: "WEMOVELT Zona Sul", lat: -23.6245, lng: -46.6634, radius: 50 },
-  { id: "zona-leste-01", name: "WEMOVELT Zona Leste", lat: -23.5428, lng: -46.4747, radius: 50 }
-];
-```
-
-**Fórmula Haversine** para calcular distância entre coordenadas e validar se usuário está dentro do raio.
-
----
-
-### 7. Tratamento de Erros
-
-| Erro | Mensagem | Ação |
-|------|----------|------|
-| Câmera negada | "Permita o acesso à câmera para escanear" | Botão "Tentar novamente" |
-| QR inválido | "QR Code não reconhecido" | Continuar escaneando |
-| GPS negado | "Permita o acesso à localização" | Botão "Configurações" |
-| Fora do raio | "Você não está próximo de uma academia" | Mostrar academias próximas |
-
----
-
-### 8. Persistência Local (sem backend)
-
-**localStorage keys:**
-- `wemovelt_checkins`: Array de check-ins
-- `wemovelt_streak`: Sequência atual
-
-**Estrutura:**
-```typescript
-{
-  "wemovelt_checkins": [
-    { "id": "abc123", "date": "2026-01-28", "method": "qr", "gymId": "zona-sul-01" },
-    { "id": "def456", "date": "2026-01-27", "method": "geo", "gymId": "zona-leste-01" }
-  ]
-}
+-- Notificações
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'lembrete', 'conquista', 'social', 'sistema'
+  title TEXT NOT NULL,
+  message TEXT,
+  read BOOLEAN DEFAULT FALSE,
+  data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
----
+### 1.3 Autenticação Real
+- [ ] Criar página `/auth` com login/cadastro
+- [ ] Implementar Supabase Auth
+- [ ] Fluxo de recuperação de senha
+- [ ] Proteção de rotas autenticadas
+- [ ] Redirect automático após login
 
-### 9. Integração com Páginas
-
-**Home.tsx e Frequencia.tsx:**
-- Importar `useCheckIn` hook
-- Substituir dados mockados por dados reais do hook
-- Atualizar visualização da semana em tempo real após check-in
-
----
-
-### 10. UI/UX do Scanner
-
-**Visual do scanner:**
-- Fundo escuro semitransparente
-- Área de enquadramento com bordas animadas (laranja WEMOVELT)
-- Texto instrucional: "Aponte para o QR Code do equipamento"
-- Ícone de flash e troca de câmera
-- Botão "Cancelar" para voltar
-
-**Animação de sucesso:**
-- Vibração do dispositivo (se disponível)
-- Som de confirmação (opcional)
-- Ícone de check animado
-- Confetti ou partículas (sutil)
+### 1.4 Políticas RLS
+- [ ] Configurar RLS em todas as tabelas
+- [ ] Usuários só acessam próprios dados
+- [ ] Posts públicos para leitura
 
 ---
 
-### Arquivos a Criar/Modificar
+## FASE 2: Perfil e Dados do Usuário
+**Prioridade: 🔴 ALTA | Complexidade: Baixa**
 
-| Arquivo | Ação |
-|---------|------|
-| `package.json` | Adicionar `@yudiel/react-qr-scanner` |
-| `src/components/QRScanner.tsx` | **CRIAR** - Componente do scanner |
-| `src/hooks/useCheckIn.ts` | **CRIAR** - Hook de gerenciamento |
-| `src/hooks/useGeolocation.ts` | **CRIAR** - Hook de geolocalização |
-| `src/utils/qrValidation.ts` | **CRIAR** - Funções de validação |
-| `src/utils/geoValidation.ts` | **CRIAR** - Cálculo de distância |
-| `src/data/gyms.ts` | **CRIAR** - Dados das academias |
-| `src/components/modals/CheckInModal.tsx` | **MODIFICAR** - Integrar scanner |
-| `src/pages/Home.tsx` | **MODIFICAR** - Usar hook real |
-| `src/pages/Frequencia.tsx` | **MODIFICAR** - Usar hook real |
+### 2.1 Perfil Funcional
+- [ ] Salvar/carregar dados do perfil
+- [ ] Upload de avatar (Supabase Storage)
+- [ ] Edição de informações pessoais
+- [ ] Configuração de objetivos
+
+### 2.2 Onboarding
+- [ ] Fluxo de onboarding pós-cadastro
+- [ ] Coleta de dados (peso, altura, objetivo)
+- [ ] Seleção de nível de experiência
 
 ---
 
-### Considerações Técnicas
+## FASE 3: Sistema de Treinos
+**Prioridade: 🟡 MÉDIA | Complexidade: Média**
 
-1. **HTTPS obrigatório**: APIs de câmera e geolocalização exigem HTTPS (já atendido no Lovable)
+### 3.1 Biblioteca de Equipamentos
+- [ ] Migrar dados estáticos para banco
+- [ ] Carregar equipamentos dinâmicos
+- [ ] Filtros por categoria/músculo
+- [ ] Busca por nome
 
-2. **Permissões**: O navegador solicitará permissão para câmera e/ou localização
+### 3.2 Vídeos Demonstrativos
+- [ ] Substituir placeholders por vídeos reais
+- [ ] Player de vídeo otimizado
+- [ ] Thumbnails dos exercícios
 
-3. **Compatibilidade**: Funciona em navegadores modernos (Chrome, Safari, Firefox)
+### 3.3 Treinos Personalizados
+- [ ] CRUD de treinos
+- [ ] Seleção de equipamentos
+- [ ] Favoritar treinos
+- [ ] Copiar/duplicar treinos
 
-4. **Mobile-first**: Otimizado para dispositivos móveis
+### 3.4 Histórico de Treinos
+- [ ] Registro de sessões
+- [ ] Visualização de histórico
+- [ ] Estatísticas (frequência, tempo)
 
-5. **Fallback**: Se câmera não disponível, sugerir geolocalização
+### 3.5 Treino do Dia
+- [ ] Algoritmo de sugestão
+- [ ] Baseado em objetivos do usuário
+- [ ] Rotação de grupos musculares
 
+---
+
+## FASE 4: Check-in Real (Já iniciado)
+**Prioridade: 🟡 MÉDIA | Complexidade: Alta**
+
+### 4.1 QR Code Scanner ✅
+- [x] Componente QRScanner
+- [x] Validação de formato
+- [ ] Integrar com banco de dados
+
+### 4.2 Geolocalização ✅
+- [x] Hook useGeolocation
+- [x] Validação de proximidade
+- [ ] Integrar com banco de dados
+
+### 4.3 Persistência
+- [ ] Migrar de localStorage para Supabase
+- [ ] Sincronização de dados
+- [ ] Histórico no banco
+
+### 4.4 Estatísticas
+- [ ] Sequência real (streak)
+- [ ] Porcentagem semanal
+- [ ] Metas de frequência
+
+---
+
+## FASE 5: Mapa de Academias Real
+**Prioridade: 🟢 BAIXA | Complexidade: Média**
+
+### 5.1 Integração com Mapas
+- [ ] Escolher API (Google Maps/Mapbox)
+- [ ] Adicionar chave de API
+- [ ] Componente de mapa interativo
+
+### 5.2 Funcionalidades
+- [ ] Lista de academias do banco
+- [ ] Marcadores no mapa
+- [ ] Calcular distância do usuário
+- [ ] Navegação para academia
+
+---
+
+## FASE 6: Comunidade Funcional
+**Prioridade: 🟢 BAIXA | Complexidade: Alta**
+
+### 6.1 Posts
+- [ ] Criar posts com texto
+- [ ] Upload de imagens
+- [ ] Feed paginado
+- [ ] Pull-to-refresh
+
+### 6.2 Interações
+- [ ] Sistema de curtidas
+- [ ] Comentários
+- [ ] Contagem em tempo real
+
+### 6.3 Perfis Públicos
+- [ ] Visualizar perfil de outros usuários
+- [ ] Seguir/deixar de seguir (opcional)
+
+---
+
+## FASE 7: Hábitos e Metas
+**Prioridade: 🟢 BAIXA | Complexidade: Média**
+
+### 7.1 Rastreamento de Hábitos
+- [ ] Registro diário
+- [ ] Histórico de hábitos
+- [ ] Gráficos de progresso
+
+### 7.2 Metas Personalizadas
+- [ ] Criar metas
+- [ ] Acompanhamento automático
+- [ ] Notificações de progresso
+
+---
+
+## FASE 8: Notificações
+**Prioridade: 🟢 BAIXA | Complexidade: Alta**
+
+### 8.1 Notificações In-App
+- [ ] Feed de notificações real
+- [ ] Marcar como lida
+- [ ] Tipos de notificação
+
+### 8.2 Push Notifications (Futuro)
+- [ ] Service Worker
+- [ ] Configurar Web Push
+- [ ] Lembretes de treino
+
+---
+
+## FASE 9: Segurança e Performance
+**Prioridade: 🔴 CONTÍNUA**
+
+### 9.1 Segurança
+- [ ] RLS em todas as tabelas
+- [ ] Validação com Zod
+- [ ] Sanitização de inputs
+- [ ] Rate limiting
+
+### 9.2 Performance
+- [ ] Lazy loading de imagens
+- [ ] Cache com React Query
+- [ ] Otimização de queries
+
+---
+
+## Cronograma Sugerido
+
+| Semana | Fase | Entregável |
+|--------|------|------------|
+| 1 | Fase 1 | Backend + Auth funcionando |
+| 2 | Fase 2 | Perfil persistente |
+| 3 | Fase 3 | Treinos funcionais |
+| 4 | Fase 4 | Check-in com banco |
+| 5-6 | Fase 5-6 | Mapa + Comunidade |
+| 7+ | Fase 7-8 | Hábitos + Notificações |
+
+---
+
+## Próximo Passo Imediato
+
+**Ativar Lovable Cloud** para configurar:
+1. Supabase integrado
+2. Banco de dados PostgreSQL
+3. Autenticação
+4. Storage para imagens
+
+Após ativar, começamos pela **Fase 1.2** (criação das tabelas).
