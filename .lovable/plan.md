@@ -1,73 +1,128 @@
 
-# Plano: Corrigir URL de Navegação do Google Maps
+# Plano: Reformular Formulario de Academia com Validacao de CEP
 
-## Problema Identificado
+## Resumo
 
-A URL de navegação do Google Maps está dando erro porque a vírgula que separa latitude e longitude não está sendo URL-encoded corretamente.
-
-**URL atual (com erro):**
-```
-https://www.google.com/maps/dir/?api=1&destination=-23.5089,-46.628
-```
-
-**URL correta (documentação Google):**
-```
-https://www.google.com/maps/dir/?api=1&destination=-23.5089%2C-46.628
-```
-
-De acordo com a [documentação oficial do Google Maps URLs](https://developers.google.com/maps/documentation/urls/get-started), coordenadas devem ser URL-encoded, onde a vírgula (`,`) deve ser codificada como `%2C`.
+Simplificar o formulario de cadastro de academias removendo campos tecnicos (lat, lng, imagem) e adicionando busca automatica de endereco via CEP para maior precisao na navegacao GPS.
 
 ---
 
-## Solucao
+## Mudancas Planejadas
 
-Usar `encodeURIComponent()` para garantir que as coordenadas sejam codificadas corretamente na URL.
+### 1. Remover Campos do Formulario
 
----
+Campos a serem removidos de `GymForm.tsx`:
+- Latitude (input manual)
+- Longitude (input manual)
+- Botao "Usar minha localizacao"
+- URL da Imagem
 
-## Mudancas no Codigo
+### 2. Adicionar Campo de CEP com Validacao
 
-**Arquivo:** `src/components/GymLocationsSection.tsx`
+Novo fluxo do formulario:
 
-### Antes:
+```text
++---------------------+
+|  Nome da Academia*  |
++---------------------+
+|  CEP  [________]    |  <-- Novo campo com mascara e validacao
++---------------------+
+|  Rua (auto)         |  <-- Preenchido automaticamente
++---------------------+
+|  Numero [___]       |  <-- Novo campo obrigatorio
++---------------------+
+|  Bairro (auto)      |  <-- Preenchido automaticamente
++---------------------+
+|  Cidade/UF (auto)   |  <-- Preenchido automaticamente
++---------------------+
+|  Raio Check-in      |  <-- Mantido
++---------------------+
+```
+
+### 3. Integracao com API ViaCEP
+
+A API ViaCEP e gratuita e retorna dados de endereco brasileiros:
+
 ```typescript
-const openGoogleMaps = (lat: number, lng: number) => {
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  window.open(url, '_blank');
+// Busca endereco pelo CEP
+const fetchAddressByCep = async (cep: string) => {
+  const cleanCep = cep.replace(/\D/g, '');
+  if (cleanCep.length !== 8) return null;
+  
+  const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+  const data = await response.json();
+  
+  if (data.erro) return null;
+  
+  return {
+    street: data.logradouro,
+    neighborhood: data.bairro,
+    city: data.localidade,
+    state: data.uf
+  };
 };
 ```
 
-### Depois:
+### 4. Novo Schema de Validacao
+
+Adicionar em `src/lib/validations.ts`:
+
 ```typescript
-const openGoogleMaps = (lat: number, lng: number) => {
-  const destination = encodeURIComponent(`${lat},${lng}`);
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-  window.open(url, '_blank');
-};
+// Schema para CEP brasileiro
+export const cepSchema = z
+  .string()
+  .regex(/^\d{5}-?\d{3}$/, "CEP invalido. Use o formato 00000-000");
+
+// Schema para formulario de academia
+export const gymFormSchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(100, "Nome muito longo"),
+  cep: cepSchema,
+  street: z.string().min(1, "Rua obrigatoria"),
+  number: z.string().min(1, "Numero obrigatorio"),
+  neighborhood: z.string().min(1, "Bairro obrigatorio"),
+  city: z.string().min(1, "Cidade obrigatoria"),
+  state: z.string().length(2, "UF invalido"),
+  radius: z.number().min(10).max(500).default(50)
+});
+```
+
+### 5. Montagem do Endereco Completo
+
+O endereco sera montado automaticamente para salvar no banco:
+
+```typescript
+// Monta endereco completo para navegacao GPS
+const fullAddress = `${street}, ${number} - ${neighborhood}, ${city} - ${state}, ${cep}`;
+// Exemplo: "Rua das Flores, 123 - Centro, Sao Paulo - SP, 01310-100"
 ```
 
 ---
 
-## Exemplo de URL Gerada
+## Arquivos a Modificar
 
-Para a academia WEMOVELT Zona Norte (lat: -23.50890000, lng: -46.62800000):
-
-**Antes:** `https://www.google.com/maps/dir/?api=1&destination=-23.5089,-46.628`
-
-**Depois:** `https://www.google.com/maps/dir/?api=1&destination=-23.5089%2C-46.628`
-
----
-
-## Arquivo a Modificar
-
-| Arquivo | Mudanca |
-|---------|---------|
-| `src/components/GymLocationsSection.tsx` | Aplicar `encodeURIComponent()` na funcao `openGoogleMaps` |
+| Arquivo | Mudancas |
+|---------|----------|
+| `src/components/admin/GymForm.tsx` | Reformular formulario completo |
+| `src/lib/validations.ts` | Adicionar schemas de CEP e academia |
 
 ---
 
-## Resultado Esperado
+## Fluxo do Usuario
 
-- URLs de navegacao Google Maps funcionando corretamente
-- Compatibilidade total com a API oficial do Google Maps URLs
-- Abre corretamente o app ou site do Google Maps com o destino definido
+1. Admin digita o CEP (ex: 01310-100)
+2. Sistema valida formato do CEP
+3. Sistema busca endereco na API ViaCEP
+4. Campos Rua, Bairro, Cidade e UF sao preenchidos automaticamente
+5. Admin insere apenas o Numero
+6. Ao salvar, endereco completo e montado para o campo `address`
+7. Navegacao GPS usa endereco completo para maior precisao
+
+---
+
+## Beneficios
+
+- Endereco padronizado e completo
+- Maior precisao na navegacao GPS (endereco vs coordenadas)
+- Menos erros de digitacao
+- Formulario mais simples para o admin
+- Validacao em tempo real do CEP
