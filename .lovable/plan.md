@@ -1,85 +1,105 @@
 
+# Plano: Corrigir Check-in com Geocoding Automatico
 
-# Plano: Tornar Campo Numero Opcional
+## Problema Identificado
 
-## Resumo
+O check-in nao funciona porque:
+1. O formulario de academia foi simplificado para usar apenas endereco (sem lat/lng manuais)
+2. Os campos lat/lng no banco estao NULL para todas as academias
+3. O sistema de check-in usa coordenadas GPS para calcular distancia
+4. Sem coordenadas, a funcao `getNearestGym` retorna `null` -> "Nenhuma academia encontrada"
 
-Ajustar o formulario de academia para que o campo "Numero" seja opcional, ja que alguns locais (pracas, parques) podem nao ter numero.
+## Solucao
+
+Implementar geocoding automatico usando a API Google Geocoding para converter o endereco em coordenadas ao salvar a academia.
+
+---
+
+## Arquitetura da Solucao
+
+```text
++-------------------+     +------------------+     +-------------------+
+|  Formulario Admin | --> | Edge Function    | --> | Banco de Dados    |
+|  (endereco)       |     | (geocoding)      |     | (lat, lng, address)|
++-------------------+     +------------------+     +-------------------+
+                                  |
+                                  v
+                          +------------------+
+                          | Google Geocoding |
+                          | API              |
+                          +------------------+
+```
 
 ---
 
 ## Mudancas Necessarias
 
-### 1. Atualizar Schema de Validacao
+### 1. Criar Edge Function para Geocoding
 
-**Arquivo:** `src/lib/validations.ts`
+**Arquivo:** `supabase/functions/geocode-address/index.ts`
 
-Alterar o campo `number` de obrigatorio para opcional:
+Nova funcao que:
+- Recebe o endereco completo
+- Chama a API Google Geocoding
+- Retorna lat/lng
 
 ```typescript
-// Antes
-number: z.string().min(1, "Número obrigatório"),
-
-// Depois
-number: z.string().optional(),
+// Exemplo de resposta
+{
+  "lat": -23.508900,
+  "lng": -46.628000
+}
 ```
 
-### 2. Atualizar Label do Campo no Formulario
+### 2. Atualizar GymForm para usar Geocoding
 
 **Arquivo:** `src/components/admin/GymForm.tsx`
 
-Remover o asterisco (*) do label do campo Numero:
+Ao submeter o formulario:
+1. Monta endereco completo
+2. Chama edge function de geocoding
+3. Recebe lat/lng
+4. Salva academia com endereco + coordenadas
 
-```typescript
-// Antes
-<Label htmlFor="number">Número *</Label>
+### 3. Atualizar Academias Existentes
 
-// Depois
-<Label htmlFor="number">Número</Label>
-```
-
-### 3. Ajustar Montagem do Endereco
-
-**Arquivo:** `src/components/admin/GymForm.tsx`
-
-Montar o endereco de forma inteligente, incluindo o numero apenas se existir:
-
-```typescript
-// Antes
-const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, ${formData.cep}`;
-
-// Depois
-const streetPart = formData.number 
-  ? `${formData.street}, ${formData.number}` 
-  : formData.street;
-const fullAddress = `${streetPart} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, ${formData.cep}`;
-```
+Opcao A: Script SQL para atualizar manualmente
+Opcao B: Botao no admin para "Atualizar Coordenadas"
 
 ---
 
-## Exemplos de Endereco Gerado
+## Arquivos a Criar/Modificar
 
-| Com Numero | Sem Numero |
-|------------|------------|
-| `Rua das Flores, 123 - Centro, São Paulo - SP, 01310-100` | `Praça da Liberdade - Funcionários, Belo Horizonte - MG, 30130-000` |
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Mudanca |
-|---------|---------|
-| `src/lib/validations.ts` | Tornar campo `number` opcional no schema |
-| `src/components/admin/GymForm.tsx` | Remover asterisco do label e ajustar montagem do endereco |
+| Arquivo | Acao |
+|---------|------|
+| `supabase/functions/geocode-address/index.ts` | Criar edge function |
+| `src/components/admin/GymForm.tsx` | Chamar geocoding antes de salvar |
 
 ---
 
-## Sobre os Links de Navegacao
+## Configuracao Necessaria
 
-Os links de navegacao Google Maps e Waze **ja estao funcionando corretamente** com o endereco:
+A API Google Geocoding requer uma chave de API. Sera necessario:
+1. Criar/usar chave do Google Cloud Platform
+2. Configurar como secret no projeto
 
-- Google Maps: `https://www.google.com/maps/dir/?api=1&destination={endereco_codificado}`
-- Waze: `https://www.waze.com/ul?q={endereco_codificado}&navigate=yes`
+---
 
-O `encodeURIComponent()` ja esta sendo aplicado ao endereco, garantindo compatibilidade com caracteres especiais e espacos.
+## Fluxo Atualizado do Cadastro
 
+1. Admin preenche CEP
+2. Sistema busca endereco via ViaCEP (ja implementado)
+3. Admin confirma dados e clica Salvar
+4. Sistema chama edge function de geocoding
+5. Edge function converte endereco -> coordenadas
+6. Academia salva com endereco + lat/lng
+7. Check-in funciona corretamente
+
+---
+
+## Beneficios
+
+- Check-in funciona com validacao de distancia precisa
+- Navegacao funciona com endereco legivel
+- Processo automatico sem entrada manual de coordenadas
+- Dados consistentes e padronizados
