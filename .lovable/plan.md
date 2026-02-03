@@ -1,105 +1,125 @@
 
-# Plano: Corrigir Check-in com Geocoding Automatico
 
-## Problema Identificado
+# Plano: Ajustar Formulario de Equipamento com Base no Card
 
-O check-in nao funciona porque:
-1. O formulario de academia foi simplificado para usar apenas endereco (sem lat/lng manuais)
-2. Os campos lat/lng no banco estao NULL para todas as academias
-3. O sistema de check-in usa coordenadas GPS para calcular distancia
-4. Sem coordenadas, a funcao `getNearestGym` retorna `null` -> "Nenhuma academia encontrada"
+## Resumo
 
-## Solucao
-
-Implementar geocoding automatico usando a API Google Geocoding para converter o endereco em coordenadas ao salvar a academia.
+Atualizar o formulario de cadastro de equipamento para incluir o campo **Musculos** que e exibido no card e modal, garantindo consistencia entre o que e cadastrado e o que e visualizado.
 
 ---
 
-## Arquitetura da Solucao
+## Analise do Card de Equipamento
 
-```text
-+-------------------+     +------------------+     +-------------------+
-|  Formulario Admin | --> | Edge Function    | --> | Banco de Dados    |
-|  (endereco)       |     | (geocoding)      |     | (lat, lng, address)|
-+-------------------+     +------------------+     +-------------------+
-                                  |
-                                  v
-                          +------------------+
-                          | Google Geocoding |
-                          | API              |
-                          +------------------+
-```
+O card exibe:
+- Imagem (ou icone padrao)
+- Nome do equipamento
+- Musculos trabalhados (texto abaixo do nome)
+
+O modal detalha:
+- Video/Imagem
+- Nome
+- Musculos (destacado em cor primaria)
+- Dificuldade
+- Descricao
+
+---
+
+## Problema Identificado
+
+O formulario atual **nao possui campo para Musculos**, porem:
+- O card exibe `eq.muscles?.join(", ")`
+- O modal exibe `equipment.muscles?.join(", ")`
+- A tabela no banco tem coluna `muscles` do tipo ARRAY
+
+Sem esse campo, os equipamentos ficam com "Musculos: Nao especificado".
 
 ---
 
 ## Mudancas Necessarias
 
-### 1. Criar Edge Function para Geocoding
+### 1. Adicionar Campo de Musculos no Formulario
 
-**Arquivo:** `supabase/functions/geocode-address/index.ts`
+**Arquivo:** `src/components/admin/EquipmentForm.tsx`
 
-Nova funcao que:
-- Recebe o endereco completo
-- Chama a API Google Geocoding
-- Retorna lat/lng
+Adicionar input para musculos com sugestoes pre-definidas:
 
-```typescript
-// Exemplo de resposta
-{
-  "lat": -23.508900,
-  "lng": -46.628000
-}
+```text
++------------------------+
+| Músculos trabalhados   |
+| [Peitoral, Tríceps]    |  <-- Campo com tags/chips
++------------------------+
 ```
 
-### 2. Atualizar GymForm para usar Geocoding
+Opcoes sugeridas:
+- Peitoral, Costas, Biceps, Triceps, Ombros
+- Quadriceps, Posterior, Gluteos, Panturrilha
+- Abdomen, Obliquos, Core, Antebraco
 
-**Arquivo:** `src/components/admin/GymForm.tsx`
+### 2. Componente de Multi-Selecao
 
-Ao submeter o formulario:
-1. Monta endereco completo
-2. Chama edge function de geocoding
-3. Recebe lat/lng
-4. Salva academia com endereco + coordenadas
-
-### 3. Atualizar Academias Existentes
-
-Opcao A: Script SQL para atualizar manualmente
-Opcao B: Botao no admin para "Atualizar Coordenadas"
+Usar checkboxes ou chips para facilitar a selecao de multiplos musculos de forma intuitiva.
 
 ---
 
-## Arquivos a Criar/Modificar
+## Estrutura do Formulario Atualizado
 
-| Arquivo | Acao |
-|---------|------|
-| `supabase/functions/geocode-address/index.ts` | Criar edge function |
-| `src/components/admin/GymForm.tsx` | Chamar geocoding antes de salvar |
+```text
++--------------------------------+
+| Nome do Equipamento *          |
++--------------------------------+
+| Descrição                      |
+| [                        ]     |
++--------------------------------+
+| Músculos Trabalhados           |  <-- NOVO
+| [x] Peitoral  [ ] Costas       |
+| [ ] Bíceps    [x] Tríceps      |
+| [ ] Ombros    [ ] Core         |
++--------------------------------+
+| Link do Vídeo (YouTube)        |
++--------------------------------+
+| URL da Imagem                  |
++--------------------------------+
+| Categoria    | Dificuldade     |
++--------------------------------+
+| Academia (vincular)            |
++--------------------------------+
+```
 
 ---
 
-## Configuracao Necessaria
+## Arquivos a Modificar
 
-A API Google Geocoding requer uma chave de API. Sera necessario:
-1. Criar/usar chave do Google Cloud Platform
-2. Configurar como secret no projeto
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/components/admin/EquipmentForm.tsx` | Adicionar campo de musculos com multi-selecao |
 
 ---
 
-## Fluxo Atualizado do Cadastro
+## Lista de Musculos Sugeridos
 
-1. Admin preenche CEP
-2. Sistema busca endereco via ViaCEP (ja implementado)
-3. Admin confirma dados e clica Salvar
-4. Sistema chama edge function de geocoding
-5. Edge function converte endereco -> coordenadas
-6. Academia salva com endereco + lat/lng
-7. Check-in funciona corretamente
+```typescript
+const MUSCLES = [
+  { value: "Peitoral", label: "Peitoral" },
+  { value: "Costas", label: "Costas" },
+  { value: "Bíceps", label: "Bíceps" },
+  { value: "Tríceps", label: "Tríceps" },
+  { value: "Ombros", label: "Ombros" },
+  { value: "Quadríceps", label: "Quadríceps" },
+  { value: "Posterior", label: "Posterior" },
+  { value: "Glúteos", label: "Glúteos" },
+  { value: "Panturrilha", label: "Panturrilha" },
+  { value: "Abdômen", label: "Abdômen" },
+  { value: "Core", label: "Core" },
+  { value: "Antebraço", label: "Antebraço" },
+];
+```
 
 ---
 
 ## Beneficios
 
-- Check-in funciona com validacao de distancia precisa
-- Navegacao funciona com endereco legivel
-- Processo automatico sem entrada manual de coordenadas
-- Dados consistentes e padronizados
+- Card exibe musculos corretamente
+- Modal mostra informacao completa
+- Consistencia entre cadastro e visualizacao
+- Interface intuitiva com checkboxes
+
