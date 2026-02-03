@@ -71,7 +71,7 @@ export const gymFormSchema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(100, "Nome muito longo"),
   cep: cepSchema,
   street: z.string().min(1, "Rua obrigatória"),
-  number: z.string().min(1, "Número obrigatório"),
+  number: z.string().optional(),
   neighborhood: z.string().min(1, "Bairro obrigatório"),
   city: z.string().min(1, "Cidade obrigatória"),
   state: z.string().length(2, "UF inválido"),
