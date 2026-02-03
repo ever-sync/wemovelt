@@ -1,7 +1,8 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { User, Settings, HelpCircle, LogOut, ChevronRight } from "lucide-react";
+import { User, Settings, HelpCircle, LogOut, ChevronRight, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import ProfileModal from "./ProfileModal";
 import SettingsModal from "./SettingsModal";
 import HelpModal from "./HelpModal";
@@ -19,11 +20,15 @@ const menuItems = [
 
 const MenuDrawer = ({ open, onOpenChange }: MenuDrawerProps) => {
   const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await signOut();
     onOpenChange(false);
     navigate("/");
   };
@@ -43,12 +48,22 @@ const MenuDrawer = ({ open, onOpenChange }: MenuDrawerProps) => {
         <SheetContent side="left" className="w-[280px] bg-card border-r-border p-0">
           <SheetHeader className="p-6 wemovelt-gradient">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-foreground/20 flex items-center justify-center">
-                <User size={32} className="text-foreground" />
+              <div className="w-16 h-16 rounded-full bg-foreground/20 flex items-center justify-center overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <User size={32} className="text-foreground" />
+                )}
               </div>
               <div>
-                <SheetTitle className="text-foreground text-lg">Usuário</SheetTitle>
-                <p className="text-foreground/80 text-sm">usuario@email.com</p>
+                <SheetTitle className="text-foreground text-lg">
+                  {profile?.name || "Usuário"}
+                </SheetTitle>
+                <p className="text-foreground/80 text-sm">{user?.email}</p>
               </div>
             </div>
           </SheetHeader>
@@ -72,10 +87,15 @@ const MenuDrawer = ({ open, onOpenChange }: MenuDrawerProps) => {
             
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 text-destructive transition-colors touch-target"
+              disabled={loggingOut}
+              className="w-full flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 text-destructive transition-colors touch-target disabled:opacity-50"
             >
-              <LogOut size={20} />
-              <span>Sair</span>
+              {loggingOut ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <LogOut size={20} />
+              )}
+              <span>{loggingOut ? "Saindo..." : "Sair"}</span>
             </button>
           </nav>
         </SheetContent>
