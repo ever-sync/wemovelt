@@ -1,138 +1,113 @@
 
-# Plano: Simplificar Check-in (Apenas Geolocalização)
+# Plano: Adicionar Acesso ao Painel Admin no Menu Lateral
 
 ## Resumo
 
-Remover a opção de QR Code do sistema de check-in e simplificar o fluxo para usar apenas geolocalização (GPS). O usuário só poderá fazer check-in quando estiver fisicamente dentro do raio da academia.
+Adicionar um item de menu no sidebar (MenuDrawer) que só aparece para usuários com a role de Super Admin. Ao clicar, o usuário é direcionado para o painel administrativo em `/admin`.
 
-## Análise do Problema
+## Estrutura Atual
 
-### Situação Atual
-1. **CheckInModal** oferece duas opções:
-   - Escanear QR Code (a ser removido)
-   - Usar localização GPS (manter)
-
-2. **Dados do calendário semanal** - Não são dados mocados! A tabela `check_ins` está vazia no banco de dados, então todos os dias passados mostram X (sem check-in), que é o comportamento correto.
+O `MenuDrawer` atual possui:
+- Meu Perfil (abre modal)
+- Configurações (abre modal)
+- Ajuda (abre modal)
+- Sair (logout)
 
 ## Mudanças Necessárias
 
-### 1. Simplificar CheckInModal
+### 1. Atualizar MenuDrawer
 
-**Arquivo:** `src/components/modals/CheckInModal.tsx`
-
-Mudanças:
-- Remover step "choose" (tela de seleção de método)
-- Remover step "qr-scanning"
-- Iniciar diretamente com a verificação de geolocalização
-- Remover imports não utilizados (QRScanner, QrCode, parseQRCode)
-- Simplificar o fluxo para: abrir modal -> verificar GPS -> sucesso/erro
-
-### 2. Simplificar Hook useCheckIn
-
-**Arquivo:** `src/hooks/useCheckIn.ts`
+**Arquivo:** `src/components/modals/MenuDrawer.tsx`
 
 Mudanças:
-- Remover parâmetro `method` da função `registerCheckIn` (sempre será "geo")
-- Remover parâmetro `equipmentId` (não usado sem QR)
-- Manter apenas lat/lng e gymId
+- Importar o hook `useUserRole` para verificar se o usuário é admin
+- Importar o ícone `Shield` do lucide-react (representa administração)
+- Adicionar um item de menu condicional "Painel Admin" que:
+  - Só aparece se `isAdmin === true`
+  - Navega para `/admin` ao clicar
+  - Fica visualmente destacado com estilo diferenciado
 
-### 3. Arquivos a Remover (Opcionais)
+### 2. Layout do Menu Atualizado
 
-Os seguintes arquivos podem ser removidos pois não serão mais utilizados:
-- `src/components/QRScanner.tsx`
-- `src/utils/qrValidation.ts`
-
-Mas podem ser mantidos para uso futuro se desejado.
-
-## Novo Fluxo de Check-in
-
-```text
-Usuário clica "Check-in"
-        |
-        v
-+-------------------+
-| Modal abre e      |
-| solicita GPS      |
-| automaticamente   |
-+-------------------+
-        |
-        v
-+-------------------+
-| Verifica se está  |
-| dentro do raio    |
-| de uma academia   |
-+-------------------+
-        |
-  Dentro? ----Não----> Mostra erro com distância
-        |               e academia mais próxima
-       Sim
-        |
-        v
-+-------------------+
-| Registra check-in |
-| no banco de dados |
-+-------------------+
-        |
-        v
-+-------------------+
-| Mostra sucesso    |
-| com streak        |
-+-------------------+
+```
++---------------------------+
+|  Avatar + Nome + Email    |
++---------------------------+
+|  🛡️  Painel Admin        |  <- Novo (só para admins)
++---------------------------+
+|  👤  Meu Perfil           |
+|  ⚙️  Configurações        |
+|  ❓  Ajuda                |
++---------------------------+
+|  🚪  Sair                 |
++---------------------------+
 ```
 
 ## Implementação Detalhada
 
-### CheckInModal Simplificado
+### MenuDrawer Atualizado
 
 ```typescript
-// Estados simplificados
-type Step = "checking" | "success" | "error";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Shield } from "lucide-react";
 
-// Ao abrir o modal, já inicia a verificação de GPS
-useEffect(() => {
-  if (open && user) {
-    geo.requestLocation();
+// No componente:
+const { isAdmin } = useUserRole();
+
+const handleMenuClick = (action: string) => {
+  onOpenChange(false);
+  
+  if (action === "admin") {
+    navigate("/admin");
+    return;
   }
-}, [open, user]);
-
-// Interface simplificada sem tela de escolha
+  
+  setTimeout(() => {
+    if (action === "profile") setProfileOpen(true);
+    // ...
+  }, 200);
+};
 ```
 
-### Estrutura do Modal
+### Renderização Condicional
 
-| Step | Conteúdo |
-|------|----------|
-| checking | Loader + "Verificando localização..." |
-| success | Ícone de sucesso + nome da academia + streak |
-| error | Mensagem de erro + distância da academia mais próxima |
+```typescript
+{isAdmin && (
+  <>
+    <button
+      onClick={() => handleMenuClick("admin")}
+      className="w-full flex items-center justify-between p-4 rounded-lg 
+                 bg-primary/10 hover:bg-primary/20 transition-colors touch-target"
+    >
+      <div className="flex items-center gap-3">
+        <Shield size={20} className="text-primary" />
+        <span className="font-medium">Painel Admin</span>
+      </div>
+      <ChevronRight size={18} className="text-muted-foreground" />
+    </button>
+    <div className="h-px bg-border my-4" />
+  </>
+)}
+```
 
-## Ordem de Implementação
+## Estilo Visual
 
-1. Atualizar `src/components/modals/CheckInModal.tsx`
-   - Remover steps desnecessários
-   - Iniciar verificação GPS automaticamente
-   - Simplificar interface
+| Item | Estilo |
+|------|--------|
+| Painel Admin | Fundo com `bg-primary/10`, texto destacado |
+| Separador | Linha divisória abaixo do item admin |
+| Ícone | `Shield` (escudo) representando proteção/admin |
 
-2. Atualizar `src/hooks/useCheckIn.ts`
-   - Remover parâmetros não utilizados
-   - Simplificar tipo de registro
+## Segurança
 
-3. (Opcional) Remover arquivos não utilizados
-   - `src/components/QRScanner.tsx`
-   - `src/utils/qrValidation.ts`
-
-## Sobre os Dados do Calendário
-
-Os dias mostrando X não são dados mocados - é o comportamento correto porque:
-- A tabela `check_ins` está vazia
-- Para dias passados sem check-in, o sistema mostra X
-- Para dias futuros, mostra o número do dia
-- Quando o usuário fizer check-ins reais, os dias vão mostrar check (verde)
+A verificação de admin é feita de forma segura:
+1. O hook `useUserRole` consulta a função `has_role` no banco (SECURITY DEFINER)
+2. A rota `/admin` também está protegida pelo componente `AdminRoute`
+3. Dupla proteção: menu condicional + rota protegida
 
 ## Resultado Esperado
 
-1. Modal de check-in abre e já começa a verificar localização
-2. Se dentro do raio da academia: registra check-in automaticamente
-3. Se fora do raio: mostra erro com distância e academia mais próxima
-4. Interface mais simples e direta
-5. Calendário semanal reflete dados reais do banco de dados
+1. Usuários normais: veem o menu sem a opção "Painel Admin"
+2. Super Admins: veem "Painel Admin" destacado no topo do menu
+3. Ao clicar: navegam diretamente para `/admin`
+4. Menu fecha automaticamente após o clique
