@@ -1,456 +1,138 @@
 
-
-# Plano: Tela de Super Admin
+# Plano: Simplificar Check-in (Apenas Geolocalização)
 
 ## Resumo
 
-Criar um painel de administracao completo para o Super Admin gerenciar:
-- Exercicios/Equipamentos (nome, descricao, link do video, categoria, dificuldade)
-- Academias (nome, endereco, localizacao GPS, raio de check-in)
-- Vinculacao de equipamentos a academias
+Remover a opção de QR Code do sistema de check-in e simplificar o fluxo para usar apenas geolocalização (GPS). O usuário só poderá fazer check-in quando estiver fisicamente dentro do raio da academia.
 
-A implementacao seguira as melhores praticas de seguranca com verificacao de roles via servidor.
+## Análise do Problema
 
----
+### Situação Atual
+1. **CheckInModal** oferece duas opções:
+   - Escanear QR Code (a ser removido)
+   - Usar localização GPS (manter)
 
-## 1. Arquitetura de Seguranca
+2. **Dados do calendário semanal** - Não são dados mocados! A tabela `check_ins` está vazia no banco de dados, então todos os dias passados mostram X (sem check-in), que é o comportamento correto.
 
-### 1.1 Sistema de Roles no Banco de Dados
+## Mudanças Necessárias
 
-```sql
--- Criar enum de roles
-CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+### 1. Simplificar CheckInModal
 
--- Criar tabela de roles separada (NUNCA no profiles)
-CREATE TABLE public.user_roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (user_id, role)
-);
+**Arquivo:** `src/components/modals/CheckInModal.tsx`
 
--- Habilitar RLS
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+Mudanças:
+- Remover step "choose" (tela de seleção de método)
+- Remover step "qr-scanning"
+- Iniciar diretamente com a verificação de geolocalização
+- Remover imports não utilizados (QRScanner, QrCode, parseQRCode)
+- Simplificar o fluxo para: abrir modal -> verificar GPS -> sucesso/erro
 
--- Funcao SECURITY DEFINER para verificar role (evita recursao)
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
-  )
-$$;
+### 2. Simplificar Hook useCheckIn
 
--- Politica: apenas admins podem ver roles
-CREATE POLICY "Admins can view all roles"
-ON public.user_roles FOR SELECT
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
+**Arquivo:** `src/hooks/useCheckIn.ts`
 
--- Politica: apenas admins podem gerenciar roles
-CREATE POLICY "Admins can manage roles"
-ON public.user_roles FOR ALL
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-```
+Mudanças:
+- Remover parâmetro `method` da função `registerCheckIn` (sempre será "geo")
+- Remover parâmetro `equipmentId` (não usado sem QR)
+- Manter apenas lat/lng e gymId
 
-### 1.2 RLS para Equipamentos e Academias
+### 3. Arquivos a Remover (Opcionais)
 
-```sql
--- Admins podem inserir/atualizar/deletar equipamentos
-CREATE POLICY "Admins can manage equipment"
-ON public.equipment FOR ALL
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
+Os seguintes arquivos podem ser removidos pois não serão mais utilizados:
+- `src/components/QRScanner.tsx`
+- `src/utils/qrValidation.ts`
 
--- Admins podem inserir/atualizar/deletar academias
-CREATE POLICY "Admins can manage gyms"
-ON public.gyms FOR ALL
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-```
+Mas podem ser mantidos para uso futuro se desejado.
 
----
-
-## 2. Estrutura de Arquivos
-
-### Novos Arquivos
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/pages/Admin.tsx` | Pagina principal do painel admin |
-| `src/components/admin/AdminEquipmentTab.tsx` | Tab de gerenciamento de equipamentos |
-| `src/components/admin/AdminGymsTab.tsx` | Tab de gerenciamento de academias |
-| `src/components/admin/EquipmentForm.tsx` | Formulario de criacao/edicao de equipamento |
-| `src/components/admin/GymForm.tsx` | Formulario de criacao/edicao de academia |
-| `src/components/AdminRoute.tsx` | Componente de protecao de rota para admin |
-| `src/hooks/useUserRole.ts` | Hook para verificar role do usuario |
-| `src/hooks/useAdminEquipment.ts` | Hook com mutations para equipamentos |
-| `src/hooks/useAdminGyms.ts` | Hook com mutations para academias |
-
-### Arquivos a Modificar
-
-| Arquivo | Mudancas |
-|---------|----------|
-| `src/App.tsx` | Adicionar rota /admin |
-| `src/contexts/AuthContext.tsx` | Adicionar isAdmin e checkRole |
-
----
-
-## 3. Componentes da Interface
-
-### 3.1 Pagina Admin (`src/pages/Admin.tsx`)
-
-Layout com abas para:
-- Equipamentos
-- Academias
-- (Futuro: Usuarios, Relatorios)
+## Novo Fluxo de Check-in
 
 ```text
-+----------------------------------+
-|  [<] WEMOVELT Admin              |
-+----------------------------------+
-|  [Equipamentos] [Academias]      |
-+----------------------------------+
-|                                  |
-|  Lista de items com acoes:       |
-|  - Editar                        |
-|  - Excluir                       |
-|  - Vincular (para equipamentos)  |
-|                                  |
-|  [+ Novo]                        |
-+----------------------------------+
-```
-
-### 3.2 Tab de Equipamentos
-
-Funcionalidades:
-- Listar todos os equipamentos com filtros por categoria
-- Criar novo equipamento (nome, descricao, video_url, categoria, dificuldade)
-- Editar equipamento existente
-- Excluir equipamento
-- Vincular equipamento a uma academia (selecionar gym_id)
-
-### 3.3 Tab de Academias
-
-Funcionalidades:
-- Listar todas as academias
-- Criar nova academia (nome, endereco, lat, lng, radius)
-- Editar academia existente
-- Excluir academia
-- Mapa interativo para selecionar localizacao (opcional)
-
-### 3.4 Formulario de Equipamento
-
-Campos:
-- Nome (obrigatorio)
-- Descricao (textarea)
-- Link do Video (URL do YouTube)
-- Categoria (select: peito, costas, pernas, bracos, ombros, abdomen)
-- Dificuldade (select: beginner, intermediate, advanced)
-- Academia (select com lista de academias)
-- Musculos trabalhados (multi-select)
-
-### 3.5 Formulario de Academia
-
-Campos:
-- Nome (obrigatorio)
-- Endereco (texto)
-- Latitude (numero)
-- Longitude (numero)
-- Raio de check-in em metros (numero, default: 50)
-- Imagem (URL ou upload)
-
----
-
-## 4. Hooks de Administracao
-
-### 4.1 useUserRole
-
-```typescript
-// src/hooks/useUserRole.ts
-export const useUserRole = () => {
-  const { user } = useAuth();
-  
-  const { data: isAdmin, isLoading } = useQuery({
-    queryKey: ["user-role", user?.id],
-    queryFn: async () => {
-      // Chama funcao no banco que verifica role
-      const { data, error } = await supabase
-        .rpc('has_role', { _user_id: user!.id, _role: 'admin' });
-      
-      if (error) return false;
-      return data as boolean;
-    },
-    enabled: !!user,
-  });
-  
-  return { isAdmin: isAdmin ?? false, isLoading };
-};
-```
-
-### 4.2 useAdminEquipment
-
-```typescript
-// src/hooks/useAdminEquipment.ts
-export const useAdminEquipment = () => {
-  const queryClient = useQueryClient();
-  
-  const createEquipment = useMutation({
-    mutationFn: async (data: CreateEquipmentData) => {
-      const { error } = await supabase
-        .from("equipment")
-        .insert(data);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["equipment"] }),
-  });
-  
-  const updateEquipment = useMutation({
-    mutationFn: async ({ id, ...data }: UpdateEquipmentData) => {
-      const { error } = await supabase
-        .from("equipment")
-        .update(data)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["equipment"] }),
-  });
-  
-  const deleteEquipment = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("equipment")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["equipment"] }),
-  });
-  
-  return { createEquipment, updateEquipment, deleteEquipment };
-};
-```
-
-### 4.3 useAdminGyms
-
-Similar ao useAdminEquipment, com mutations para:
-- createGym
-- updateGym
-- deleteGym
-
----
-
-## 5. Rota Protegida para Admin
-
-### 5.1 AdminRoute Component
-
-```typescript
-// src/components/AdminRoute.tsx
-const AdminRoute = ({ children }: { children: ReactNode }) => {
-  const { user, loading } = useAuth();
-  const { isAdmin, isLoading } = useUserRole();
-  
-  if (loading || isLoading) {
-    return <LoadingSpinner />;
-  }
-  
-  if (!user) {
-    return <Navigate to="/" replace />;
-  }
-  
-  if (!isAdmin) {
-    return <Navigate to="/home" replace />;
-  }
-  
-  return <>{children}</>;
-};
-```
-
-### 5.2 Rota no App.tsx
-
-```typescript
-<Route path="/admin" element={
-  <AdminRoute>
-    <Admin />
-  </AdminRoute>
-} />
-```
-
----
-
-## 6. Migracao SQL Completa
-
-```sql
--- 1. Criar enum de roles
-CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
-
--- 2. Criar tabela de roles
-CREATE TABLE public.user_roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (user_id, role)
-);
-
--- 3. Habilitar RLS
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-
--- 4. Funcao de verificacao de role
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
-  )
-$$;
-
--- 5. Politicas de user_roles
-CREATE POLICY "Admins can view roles"
-ON public.user_roles FOR SELECT
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can insert roles"
-ON public.user_roles FOR INSERT
-TO authenticated
-WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can delete roles"
-ON public.user_roles FOR DELETE
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-
--- 6. Politicas de equipamentos para admins
-CREATE POLICY "Admins can insert equipment"
-ON public.equipment FOR INSERT
-TO authenticated
-WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can update equipment"
-ON public.equipment FOR UPDATE
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can delete equipment"
-ON public.equipment FOR DELETE
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-
--- 7. Politicas de academias para admins
-CREATE POLICY "Admins can insert gyms"
-ON public.gyms FOR INSERT
-TO authenticated
-WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can update gyms"
-ON public.gyms FOR UPDATE
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can delete gyms"
-ON public.gyms FOR DELETE
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-```
-
----
-
-## 7. Fluxo de Acesso ao Admin
-
-```text
-Usuario acessa /admin
+Usuário clica "Check-in"
         |
         v
-+----------------+
-| AdminRoute     |
-| verifica auth  |
-+----------------+
-        |
-  Logado? ----No----> Redireciona para /
-        |
-       Yes
++-------------------+
+| Modal abre e      |
+| solicita GPS      |
+| automaticamente   |
++-------------------+
         |
         v
-+----------------+
-| useUserRole    |
-| verifica role  |
-| (via servidor) |
-+----------------+
++-------------------+
+| Verifica se está  |
+| dentro do raio    |
+| de uma academia   |
++-------------------+
         |
-  isAdmin? ---No----> Redireciona para /home
-        |                (sem acesso)
-       Yes
+  Dentro? ----Não----> Mostra erro com distância
+        |               e academia mais próxima
+       Sim
         |
         v
-+----------------+
-| Pagina Admin   |
-| (acesso total) |
-+----------------+
++-------------------+
+| Registra check-in |
+| no banco de dados |
++-------------------+
+        |
+        v
++-------------------+
+| Mostra sucesso    |
+| com streak        |
++-------------------+
 ```
 
----
+## Implementação Detalhada
 
-## 8. Ordem de Implementacao
+### CheckInModal Simplificado
 
-1. Migracao SQL - Criar tabela user_roles, funcao has_role e politicas RLS
-2. Hook useUserRole - Verificacao de role via servidor
-3. AdminRoute - Componente de protecao de rota
-4. Pagina Admin - Layout com tabs
-5. useAdminEquipment - Mutations de equipamentos
-6. AdminEquipmentTab - Lista e acoes de equipamentos
-7. EquipmentForm - Formulario de equipamento
-8. useAdminGyms - Mutations de academias
-9. AdminGymsTab - Lista e acoes de academias
-10. GymForm - Formulario de academia
-11. App.tsx - Adicionar rota /admin
+```typescript
+// Estados simplificados
+type Step = "checking" | "success" | "error";
 
----
+// Ao abrir o modal, já inicia a verificação de GPS
+useEffect(() => {
+  if (open && user) {
+    geo.requestLocation();
+  }
+}, [open, user]);
 
-## 9. Consideracoes de Seguranca
-
-| Aspecto | Implementacao |
-|---------|---------------|
-| Roles em tabela separada | Evita escalonamento de privilegios |
-| SECURITY DEFINER | Evita recursao em RLS |
-| Verificacao no servidor | Nunca confia em localStorage |
-| RLS em todas as operacoes | Dupla camada de seguranca |
-| Rota protegida no frontend | UX - nao mostra UI de admin para nao-admins |
-
----
-
-## 10. Primeiro Admin
-
-Apos implementacao, sera necessario inserir o primeiro admin manualmente:
-
-```sql
--- Substitua pelo UUID do seu usuario
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('seu-user-id-aqui', 'admin');
+// Interface simplificada sem tela de escolha
 ```
 
-Depois, o admin pode gerenciar outros admins pela interface.
+### Estrutura do Modal
 
----
+| Step | Conteúdo |
+|------|----------|
+| checking | Loader + "Verificando localização..." |
+| success | Ícone de sucesso + nome da academia + streak |
+| error | Mensagem de erro + distância da academia mais próxima |
 
-## 11. Resultado Esperado
+## Ordem de Implementação
 
-Apos implementacao:
-1. Rota /admin acessivel apenas para usuarios com role 'admin'
-2. Super Admin pode criar/editar/excluir equipamentos com video e descricao
-3. Super Admin pode criar/editar/excluir academias com localizacao
-4. Super Admin pode vincular equipamentos a academias especificas
-5. Sistema de roles escalavel para futuras funcionalidades (moderadores, etc)
+1. Atualizar `src/components/modals/CheckInModal.tsx`
+   - Remover steps desnecessários
+   - Iniciar verificação GPS automaticamente
+   - Simplificar interface
 
+2. Atualizar `src/hooks/useCheckIn.ts`
+   - Remover parâmetros não utilizados
+   - Simplificar tipo de registro
+
+3. (Opcional) Remover arquivos não utilizados
+   - `src/components/QRScanner.tsx`
+   - `src/utils/qrValidation.ts`
+
+## Sobre os Dados do Calendário
+
+Os dias mostrando X não são dados mocados - é o comportamento correto porque:
+- A tabela `check_ins` está vazia
+- Para dias passados sem check-in, o sistema mostra X
+- Para dias futuros, mostra o número do dia
+- Quando o usuário fizer check-ins reais, os dias vão mostrar check (verde)
+
+## Resultado Esperado
+
+1. Modal de check-in abre e já começa a verificar localização
+2. Se dentro do raio da academia: registra check-in automaticamente
+3. Se fora do raio: mostra erro com distância e academia mais próxima
+4. Interface mais simples e direta
+5. Calendário semanal reflete dados reais do banco de dados
