@@ -1,14 +1,14 @@
 import { MapPin, Loader2, Navigation } from "lucide-react";
 import { useState } from "react";
 import { useGyms } from "@/hooks/useGyms";
+import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import GoogleMapsDisplay from "./GoogleMapsDisplay";
 import { Button } from "./ui/button";
 
 const GymLocationsSection = () => {
   const { gyms, isLoading } = useGyms();
+  const { apiKey: googleMapsKey } = useGoogleMapsKey();
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-  
-  const hasGoogleMapsKey = !!import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   
   const selectedGym = selectedLocation ? gyms.find(g => g.id === selectedLocation) : null;
 
@@ -146,11 +146,12 @@ const GymLocationsSection = () => {
       <div className="bg-card rounded-2xl overflow-hidden">
         {/* Map section */}
         <div className="relative h-48 bg-secondary overflow-hidden">
-          {hasGoogleMapsKey ? (
+          {googleMapsKey ? (
             <GoogleMapsDisplay
               gyms={gyms}
               selectedId={selectedLocation}
               onMarkerClick={setSelectedLocation}
+              apiKey={googleMapsKey}
             />
           ) : (
             <SimulatedMapFallback />
