@@ -125,28 +125,28 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
   if (!user) {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="bg-card border-border mx-4 rounded-2xl max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-center">
-              Fazer Check-in
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-8 flex flex-col items-center">
-            <div className="bg-destructive/20 text-destructive rounded-xl p-4 text-center text-sm mb-4">
-              Faça login para registrar seu check-in
-            </div>
-            <Button onClick={handleClose} className="wemovelt-gradient rounded-xl px-8">
-              Fechar
-            </Button>
+      <DialogContent className="bg-card border-border mx-4 rounded-2xl max-w-sm z-[200]">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-center">
+            Fazer Check-in
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-8 flex flex-col items-center">
+          <div className="bg-destructive/20 text-destructive rounded-xl p-4 text-center text-sm mb-4">
+            Faça login para registrar seu check-in
           </div>
-        </DialogContent>
+          <Button onClick={handleClose} className="wemovelt-gradient rounded-xl px-8">
+            Fechar
+          </Button>
+        </div>
+      </DialogContent>
       </Dialog>
     );
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-card border-border mx-4 rounded-2xl max-w-sm">
+      <DialogContent className="bg-card border-border mx-4 rounded-2xl max-w-sm z-[200]">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center">
             Fazer Check-in
