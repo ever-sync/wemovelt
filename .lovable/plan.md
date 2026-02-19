@@ -1,46 +1,50 @@
 
-## Corrigir conteúdo cortado na parte inferior do app (mobile)
+## Criar novo ícone PWA com halter de academia
 
-### Problema identificado
+### O que será feito
 
-Na imagem enviada, dois problemas são visíveis:
+Redesenhar o ícone do app (favicon SVG + PNGs do PWA) para mostrar um **halter/dumbbell** estilizado sobre o fundo gradiente laranja-vermelho da marca WEMOVELT.
 
-1. **Conteúdo cortado**: Os botões "Google Maps" e "Waze" na seção de academias estão sendo parcialmente ocultados pela BottomNav + pelo botão flutuante "Chamar Personal".
-2. **Botão FAB sobreposto**: O `WhatsAppFAB` está posicionado em `bottom-[84px]`, ficando na frente dos botões de navegação no final da página.
+### Design do ícone
 
-### Causa raiz
+O halter será desenhado em SVG com traços brancos sobre o fundo circular gradiente existente (`#f97316` para `#dc2626`). O design será minimalista: uma barra horizontal com dois discos em cada extremidade.
 
-Todas as páginas usam `pb-20` (80px) como padding inferior, mas isso não é suficiente quando há:
-- BottomNav com ~64px de altura
-- Safe area inset (barra de sistema iOS/Android) adicional
-- Botão FAB flutuante que cobre parte do conteúdo
-
-### O que será corrigido
-
-**1. Aumentar padding inferior de todas as páginas principais:**
-
-Mudar `pb-20` para `pb-32` nos containers das páginas:
-- `src/pages/Home.tsx`
-- `src/pages/Treinos.tsx`
-- `src/pages/Habitos.tsx`
-- `src/pages/Frequencia.tsx`
-- `src/pages/Comunidade.tsx`
-
-`pb-32` = 128px, suficiente para acomodar a BottomNav (64px) + safe area + espaço visual confortável.
-
-**2. Adicionar suporte a safe-area-inset-bottom no padding:**
-
-Usar `style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}` nos containers para garantir compatibilidade com dispositivos com barra de gestos (Android) e notch/home indicator (iPhone).
-
-**3. Ajustar posição do FAB:**
-
-Mover o `WhatsAppFAB` para `bottom-[96px]` para não sobrepor o último item visível da lista de academias.
+```text
+┌──────────────────┐
+│   ◼━━━━━━━◼      │
+│  ◼◼━━━━━━◼◼     │
+│   ◼━━━━━━━◼      │
+│                  │
+│  Fundo gradiente │
+│  laranja→vermelho│
+└──────────────────┘
+```
 
 ### Arquivos modificados
 
-- `src/pages/Home.tsx` — aumentar padding inferior
-- `src/pages/Treinos.tsx` — aumentar padding inferior
-- `src/pages/Habitos.tsx` — aumentar padding inferior
-- `src/pages/Frequencia.tsx` — aumentar padding inferior
-- `src/pages/Comunidade.tsx` — aumentar padding inferior
-- `src/components/WhatsAppFAB.tsx` — ajustar posição do botão flutuante
+**1. `public/favicon.svg`** — Substituir o ícone atual (setas) por um halter/dumbbell branco sobre o mesmo fundo gradiente circular.
+
+O SVG do halter será composto por:
+- Círculo de fundo com gradiente laranja-vermelho (mantido)
+- Barra central horizontal (retângulo branco)
+- Dois pares de discos (retângulos arredondados brancos) nas extremidades
+
+**2. `public/icon-180.png`, `public/icon-192.png`, `public/icon-512.png`** — Estes precisarão ser regenerados a partir do novo SVG. Como não é possível converter SVG para PNG diretamente no código, o favicon SVG será atualizado e os PNGs serão referenciados com o mesmo SVG via tag `<link>` no `index.html` como fallback. Alternativamente, podemos criar os ícones PNG usando um canvas no build ou orientar o usuário a gerar os PNGs externamente.
+
+### Abordagem prática
+
+Como a limitação principal é gerar PNGs, a solução será:
+
+1. **Atualizar `public/favicon.svg`** com o novo design do halter
+2. **Atualizar `index.html`** para adicionar o SVG como apple-touch-icon fallback
+3. Os PNGs existentes continuarão funcionando até o usuário gerar novos (instruções serão fornecidas)
+
+### Detalhes técnicos do SVG
+
+O novo `favicon.svg` terá:
+- Viewbox: `0 0 32 32`
+- Fundo: círculo com gradiente `#f97316` → `#dc2626` (mesmo da marca)
+- Halter: elementos `rect` com `rx` para cantos arredondados, cor branca
+  - Barra central: retângulo fino horizontal
+  - Discos internos: retângulos mais largos e altos
+  - Discos externos: retângulos menores nas pontas
