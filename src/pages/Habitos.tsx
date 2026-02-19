@@ -1,4 +1,5 @@
 import Header from "@/components/layout/Header";
+import WhatsAppFAB from "@/components/WhatsAppFAB";
 import BottomNav from "@/components/layout/BottomNav";
 import { Heart, Droplets, Moon, Apple, Smile, TrendingUp } from "lucide-react";
 import { useState } from "react";
@@ -170,6 +171,7 @@ const Habitos = () => {
         open={!!selectedHabit}
         onOpenChange={(open) => !open && setSelectedHabit(null)}
       />
+      <WhatsAppFAB />
     </div>
   );
 };

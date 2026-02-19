@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import WhatsAppFAB from "@/components/WhatsAppFAB";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import { Plus, Loader2 } from "lucide-react";
@@ -170,6 +171,7 @@ const Comunidade = () => {
         onOpenChange={setCommentsModalOpen}
         post={selectedPost}
       />
+      <WhatsAppFAB />
     </div>
   );
 };
