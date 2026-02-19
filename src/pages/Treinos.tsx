@@ -1,4 +1,5 @@
 import Header from "@/components/layout/Header";
+import WhatsAppFAB from "@/components/WhatsAppFAB";
 import BottomNav from "@/components/layout/BottomNav";
 import { Play, Plus, Calendar, Dumbbell } from "lucide-react";
 import { useState } from "react";
@@ -148,6 +149,7 @@ const Treinos = () => {
       <MyWorkoutsModal open={myWorkoutsOpen} onOpenChange={setMyWorkoutsOpen} />
       <DailyWorkoutModal open={dailyWorkoutOpen} onOpenChange={setDailyWorkoutOpen} />
       <CreateWorkoutModal open={createWorkoutOpen} onOpenChange={setCreateWorkoutOpen} />
+      <WhatsAppFAB />
     </div>
   );
 };

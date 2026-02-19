@@ -1,4 +1,5 @@
 import Header from "@/components/layout/Header";
+import WhatsAppFAB from "@/components/WhatsAppFAB";
 import BottomNav from "@/components/layout/BottomNav";
 import { Button } from "@/components/ui/button";
 import { MapPin, Target, Check, Trophy, Flame, Plus } from "lucide-react";
@@ -157,6 +158,7 @@ const Frequencia = () => {
       <BottomNav />
       <CheckInModal open={checkInOpen} onOpenChange={setCheckInOpen} />
       <GoalModal open={goalOpen} onOpenChange={setGoalOpen} />
+      <WhatsAppFAB />
     </div>
   );
 };
