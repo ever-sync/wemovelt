@@ -16,12 +16,16 @@ import Frequencia from "./pages/Frequencia";
 import Comunidade from "./pages/Comunidade";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import Privacidade from "./pages/Privacidade";
+import Termos from "./pages/Termos";
 
 
 const AppContent = () => {
   return (
     <Routes>
       <Route path="/" element={<Welcome />} />
+      <Route path="/privacidade" element={<Privacidade />} />
+      <Route path="/termos" element={<Termos />} />
       <Route path="/home" element={
         <ProtectedRoute>
           <Home />
