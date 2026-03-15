@@ -5,6 +5,7 @@ import NotificationsModal from "../modals/NotificationsModal";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import BrandLockup from "@/components/brand/BrandLockup";
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,19 +40,7 @@ const Header = () => {
               <Menu size={20} />
             </button>
 
-            <div className="flex items-center gap-4">
-              <div className="orange-glow flex h-10 w-10 items-center justify-center rounded-2xl wemovelt-gradient text-[0.8rem] font-bold text-primary-foreground">
-                WM
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="mb-1 text-[0.64rem] uppercase tracking-[0.32em] text-primary/80">
-                  Outdoor fitness
-                </p>
-                <h1 className="text-[1.02rem] font-bold leading-none tracking-[-0.05em] text-foreground">
-                  WEMOVELT
-                </h1>
-              </div>
-            </div>
+            <BrandLockup />
 
             <div className="flex items-center gap-2">
               {showInstallButton && (

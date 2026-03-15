@@ -21,6 +21,7 @@ function Initialize-Graphics {
     $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $Graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+    $Graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
 }
 
 function Save-Png {
@@ -37,88 +38,160 @@ function Save-Png {
     $Bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
 }
 
-function New-RoundedRectanglePath {
+function New-Font {
     param(
-        [float]$X,
-        [float]$Y,
-        [float]$Width,
-        [float]$Height,
-        [float]$Radius
+        [float]$Size,
+        [System.Drawing.FontStyle]$Style = [System.Drawing.FontStyle]::Bold
     )
 
-    $diameter = $Radius * 2
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $preferredFamilies = @("Arial", "Segoe UI", "Verdana")
 
-    $path.AddArc($X, $Y, $diameter, $diameter, 180, 90)
-    $path.AddArc($X + $Width - $diameter, $Y, $diameter, $diameter, 270, 90)
-    $path.AddArc($X + $Width - $diameter, $Y + $Height - $diameter, $diameter, $diameter, 0, 90)
-    $path.AddArc($X, $Y + $Height - $diameter, $diameter, $diameter, 90, 90)
-    $path.CloseFigure()
-
-    return $path
-}
-
-function Draw-BrandMark {
-    param(
-        [System.Drawing.Graphics]$Graphics,
-        [int]$CanvasWidth,
-        [int]$CanvasHeight,
-        [double]$Scale = 1.0,
-        [double]$Rotation = -32.0
-    )
-
-    $unitScale = ([Math]::Min($CanvasWidth, $CanvasHeight) / 32.0) * $Scale
-    $matrix = $Graphics.Transform.Clone()
-    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
-
-    try {
-        $Graphics.TranslateTransform($CanvasWidth / 2.0, $CanvasHeight / 2.0)
-        $Graphics.RotateTransform([float]$Rotation)
-        $Graphics.ScaleTransform([float]$unitScale, [float]$unitScale)
-        $Graphics.TranslateTransform(-16.0, -16.0)
-
-        $shapes = @(
-            @{ X = 7.0; Y = 14.5; Width = 18.0; Height = 3.0; Radius = 1.5 },
-            @{ X = 5.0; Y = 12.0; Width = 2.5; Height = 8.0; Radius = 1.0 },
-            @{ X = 8.0; Y = 10.5; Width = 3.0; Height = 11.0; Radius = 1.0 },
-            @{ X = 21.0; Y = 10.5; Width = 3.0; Height = 11.0; Radius = 1.0 },
-            @{ X = 24.5; Y = 12.0; Width = 2.5; Height = 8.0; Radius = 1.0 }
-        )
-
-        foreach ($shape in $shapes) {
-            $path = New-RoundedRectanglePath -X $shape.X -Y $shape.Y -Width $shape.Width -Height $shape.Height -Radius $shape.Radius
-            try {
-                $Graphics.FillPath($brush, $path)
-            }
-            finally {
-                $path.Dispose()
-            }
+    foreach ($family in $preferredFamilies) {
+        try {
+            return New-Object System.Drawing.Font($family, $Size, $Style, [System.Drawing.GraphicsUnit]::Pixel)
+        }
+        catch {
         }
     }
-    finally {
-        $Graphics.Transform = $matrix
-        $matrix.Dispose()
-        $brush.Dispose()
-    }
+
+    return New-Object System.Drawing.Font([System.Drawing.FontFamily]::GenericSansSerif, $Size, $Style, [System.Drawing.GraphicsUnit]::Pixel)
 }
 
-function Fill-BrandBackground {
+function Fill-AppBackground {
     param(
+        [System.Drawing.Graphics]$Graphics,
         [int]$Width,
-        [int]$Height,
-        [System.Drawing.Graphics]$Graphics
+        [int]$Height
     )
 
     $rectangle = New-Object System.Drawing.Rectangle(0, 0, $Width, $Height)
-    $startColor = [System.Drawing.ColorTranslator]::FromHtml("#ff4338")
-    $endColor = [System.Drawing.ColorTranslator]::FromHtml("#ff9a4f")
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rectangle, $startColor, $endColor, 0.0)
+    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+        $rectangle,
+        [System.Drawing.ColorTranslator]::FromHtml("#070707"),
+        [System.Drawing.ColorTranslator]::FromHtml("#15100c"),
+        90.0
+    )
 
     try {
         $Graphics.FillRectangle($brush, $rectangle)
     }
     finally {
         $brush.Dispose()
+    }
+
+    $topGlow = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(22, 255, 102, 0))
+    $bottomGlow = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(18, 255, 139, 45))
+
+    try {
+        $Graphics.FillEllipse($topGlow, -($Width * 0.15), -($Height * 0.22), $Width * 1.3, $Height * 0.72)
+        $Graphics.FillEllipse($bottomGlow, -($Width * 0.1), $Height * 0.64, $Width * 1.2, $Height * 0.42)
+    }
+    finally {
+        $topGlow.Dispose()
+        $bottomGlow.Dispose()
+    }
+}
+
+function Draw-Badge {
+    param(
+        [System.Drawing.Graphics]$Graphics,
+        [int]$CanvasWidth,
+        [int]$CanvasHeight,
+        [double]$Scale = 1.0,
+        [switch]$TransparentBackground
+    )
+
+    $size = [Math]::Min($CanvasWidth, $CanvasHeight) * $Scale
+    $diameter = [float]$size
+    $x = [float](($CanvasWidth - $diameter) / 2.0)
+    $y = [float](($CanvasHeight - $diameter) / 2.0)
+    $ellipse = New-Object System.Drawing.RectangleF($x, $y, $diameter, $diameter)
+
+    if (-not $TransparentBackground) {
+        $shadowBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(70, 255, 102, 0))
+        try {
+            $Graphics.FillEllipse($shadowBrush, $x - ($diameter * 0.04), $y + ($diameter * 0.08), $diameter * 1.08, $diameter * 1.08)
+        }
+        finally {
+            $shadowBrush.Dispose()
+        }
+    }
+
+    $gradientBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+        (New-Object System.Drawing.Rectangle([int]$x, [int]$y, [int]$diameter, [int]$diameter)),
+        [System.Drawing.ColorTranslator]::FromHtml("#ff6a00"),
+        [System.Drawing.ColorTranslator]::FromHtml("#ff8f2a"),
+        45.0
+    )
+
+    try {
+        $Graphics.FillEllipse($gradientBrush, $ellipse)
+    }
+    finally {
+        $gradientBrush.Dispose()
+    }
+
+    $highlightBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(46, 255, 255, 255))
+    try {
+        $Graphics.FillEllipse(
+            $highlightBrush,
+            $x + ($diameter * 0.18),
+            $y + ($diameter * 0.08),
+            $diameter * 0.46,
+            $diameter * 0.24
+        )
+    }
+    finally {
+        $highlightBrush.Dispose()
+    }
+
+    $font = New-Font -Size ([float]($diameter * 0.34))
+    $format = New-Object System.Drawing.StringFormat
+    $format.Alignment = [System.Drawing.StringAlignment]::Center
+    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $format.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#111111"))
+
+    try {
+        $Graphics.DrawString("WM", $font, $brush, $ellipse, $format)
+    }
+    finally {
+        $brush.Dispose()
+        $format.Dispose()
+        $font.Dispose()
+    }
+}
+
+function Draw-Wordmark {
+    param(
+        [System.Drawing.Graphics]$Graphics,
+        [int]$CanvasWidth,
+        [int]$CanvasHeight
+    )
+
+    $centerX = $CanvasWidth / 2.0
+    $baseY = $CanvasHeight / 2.0 + ($CanvasHeight * 0.16)
+
+    $titleFont = New-Font -Size ([float]($CanvasHeight * 0.054))
+    $subtitleFont = New-Font -Size ([float]($CanvasHeight * 0.024)) -Style ([System.Drawing.FontStyle]::Bold)
+    $titleBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+    $subtitleBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#ff8b2d"))
+    $format = New-Object System.Drawing.StringFormat
+    $format.Alignment = [System.Drawing.StringAlignment]::Center
+    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+
+    try {
+        $subtitlePoint = [System.Drawing.PointF]::new([float]$centerX, [float]($baseY - ($CanvasHeight * 0.045)))
+        $titlePoint = [System.Drawing.PointF]::new([float]$centerX, [float]$baseY)
+        $Graphics.DrawString("OUTDOOR FITNESS", $subtitleFont, $subtitleBrush, $subtitlePoint, $format)
+        $Graphics.DrawString("WEMOVELT", $titleFont, $titleBrush, $titlePoint, $format)
+    }
+    finally {
+        $format.Dispose()
+        $subtitleBrush.Dispose()
+        $titleBrush.Dispose()
+        $subtitleFont.Dispose()
+        $titleFont.Dispose()
     }
 }
 
@@ -133,8 +206,29 @@ function New-IconImage {
 
     try {
         Initialize-Graphics -Graphics $graphics
-        Fill-BrandBackground -Width $Size -Height $Size -Graphics $graphics
-        Draw-BrandMark -Graphics $graphics -CanvasWidth $Size -CanvasHeight $Size -Scale 0.72
+        Fill-AppBackground -Graphics $graphics -Width $Size -Height $Size
+        Draw-Badge -Graphics $graphics -CanvasWidth $Size -CanvasHeight $Size -Scale 0.62
+        Save-Png -Bitmap $bitmap -Path $Path
+    }
+    finally {
+        $graphics.Dispose()
+        $bitmap.Dispose()
+    }
+}
+
+function New-AdaptiveForegroundImage {
+    param(
+        [int]$Size,
+        [string]$Path
+    )
+
+    $bitmap = New-Canvas -Width $Size -Height $Size
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+
+    try {
+        Initialize-Graphics -Graphics $graphics
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        Draw-Badge -Graphics $graphics -CanvasWidth $Size -CanvasHeight $Size -Scale 0.58 -TransparentBackground
         Save-Png -Bitmap $bitmap -Path $Path
     }
     finally {
@@ -155,8 +249,9 @@ function New-SplashImage {
 
     try {
         Initialize-Graphics -Graphics $graphics
-        Fill-BrandBackground -Width $Width -Height $Height -Graphics $graphics
-        Draw-BrandMark -Graphics $graphics -CanvasWidth $Width -CanvasHeight $Height -Scale 0.34
+        Fill-AppBackground -Graphics $graphics -Width $Width -Height $Height
+        Draw-Badge -Graphics $graphics -CanvasWidth $Width -CanvasHeight ([int]($Height * 0.72)) -Scale 0.22
+        Draw-Wordmark -Graphics $graphics -CanvasWidth $Width -CanvasHeight $Height
         Save-Png -Bitmap $bitmap -Path $Path
     }
     finally {
@@ -166,22 +261,28 @@ function New-SplashImage {
 }
 
 $iconTargets = @(
-    @{ Path = "android\app\src\main\res\mipmap-mdpi\ic_launcher.png"; Size = 48 },
-    @{ Path = "android\app\src\main\res\mipmap-mdpi\ic_launcher_round.png"; Size = 48 },
-    @{ Path = "android\app\src\main\res\mipmap-mdpi\ic_launcher_foreground.png"; Size = 108 },
-    @{ Path = "android\app\src\main\res\mipmap-hdpi\ic_launcher.png"; Size = 72 },
-    @{ Path = "android\app\src\main\res\mipmap-hdpi\ic_launcher_round.png"; Size = 72 },
-    @{ Path = "android\app\src\main\res\mipmap-hdpi\ic_launcher_foreground.png"; Size = 162 },
-    @{ Path = "android\app\src\main\res\mipmap-xhdpi\ic_launcher.png"; Size = 96 },
-    @{ Path = "android\app\src\main\res\mipmap-xhdpi\ic_launcher_round.png"; Size = 96 },
-    @{ Path = "android\app\src\main\res\mipmap-xhdpi\ic_launcher_foreground.png"; Size = 216 },
-    @{ Path = "android\app\src\main\res\mipmap-xxhdpi\ic_launcher.png"; Size = 144 },
-    @{ Path = "android\app\src\main\res\mipmap-xxhdpi\ic_launcher_round.png"; Size = 144 },
-    @{ Path = "android\app\src\main\res\mipmap-xxhdpi\ic_launcher_foreground.png"; Size = 324 },
-    @{ Path = "android\app\src\main\res\mipmap-xxxhdpi\ic_launcher.png"; Size = 192 },
-    @{ Path = "android\app\src\main\res\mipmap-xxxhdpi\ic_launcher_round.png"; Size = 192 },
-    @{ Path = "android\app\src\main\res\mipmap-xxxhdpi\ic_launcher_foreground.png"; Size = 432 },
-    @{ Path = "ios\App\App\Assets.xcassets\AppIcon.appiconset\AppIcon-512@2x.png"; Size = 1024 }
+    @{ Path = "public\favicon.png"; Size = 256; Type = "icon" },
+    @{ Path = "public\icon-180.png"; Size = 180; Type = "icon" },
+    @{ Path = "public\icon-192.png"; Size = 192; Type = "icon" },
+    @{ Path = "public\icon-512.png"; Size = 512; Type = "icon" },
+    @{ Path = "public\logo-mark.png"; Size = 1024; Type = "icon" },
+    @{ Path = "public\logo-mark-1024.png"; Size = 1024; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-mdpi\ic_launcher.png"; Size = 48; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-mdpi\ic_launcher_round.png"; Size = 48; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-mdpi\ic_launcher_foreground.png"; Size = 108; Type = "foreground" },
+    @{ Path = "android\app\src\main\res\mipmap-hdpi\ic_launcher.png"; Size = 72; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-hdpi\ic_launcher_round.png"; Size = 72; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-hdpi\ic_launcher_foreground.png"; Size = 162; Type = "foreground" },
+    @{ Path = "android\app\src\main\res\mipmap-xhdpi\ic_launcher.png"; Size = 96; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-xhdpi\ic_launcher_round.png"; Size = 96; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-xhdpi\ic_launcher_foreground.png"; Size = 216; Type = "foreground" },
+    @{ Path = "android\app\src\main\res\mipmap-xxhdpi\ic_launcher.png"; Size = 144; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-xxhdpi\ic_launcher_round.png"; Size = 144; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-xxhdpi\ic_launcher_foreground.png"; Size = 324; Type = "foreground" },
+    @{ Path = "android\app\src\main\res\mipmap-xxxhdpi\ic_launcher.png"; Size = 192; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-xxxhdpi\ic_launcher_round.png"; Size = 192; Type = "icon" },
+    @{ Path = "android\app\src\main\res\mipmap-xxxhdpi\ic_launcher_foreground.png"; Size = 432; Type = "foreground" },
+    @{ Path = "ios\App\App\Assets.xcassets\AppIcon.appiconset\AppIcon-512@2x.png"; Size = 1024; Type = "icon" }
 )
 
 $splashTargets = @(
@@ -202,7 +303,12 @@ $splashTargets = @(
 )
 
 foreach ($target in $iconTargets) {
-    New-IconImage -Size $target.Size -Path $target.Path
+    if ($target.Type -eq "foreground") {
+        New-AdaptiveForegroundImage -Size $target.Size -Path $target.Path
+    }
+    else {
+        New-IconImage -Size $target.Size -Path $target.Path
+    }
 }
 
 foreach ($target in $splashTargets) {

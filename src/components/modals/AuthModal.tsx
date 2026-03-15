@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import BrandLockup from "@/components/brand/BrandLockup";
 
 interface AuthModalProps {
   open: boolean;
@@ -206,15 +207,12 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
 
           <div className="relative z-10 px-6 pb-6 pt-10">
             <div className="mb-8">
-              <div className="mb-8 flex items-center gap-3">
-                <div className="orange-glow flex h-12 w-12 items-center justify-center rounded-[1.3rem] wemovelt-gradient text-sm font-bold text-primary-foreground">
-                  WM
-                </div>
-                <div>
-                  <p className="text-[0.68rem] uppercase tracking-[0.32em] text-primary/80">Outdoor fitness</p>
-                  <p className="text-lg font-bold tracking-[-0.05em]">WEMOVELT</p>
-                </div>
-              </div>
+              <BrandLockup
+                className="mb-8"
+                iconClassName="h-12 w-12"
+                kickerClassName="text-[0.68rem]"
+                titleClassName="text-lg"
+              />
 
               <h2 className="max-w-[11ch] text-[2rem] font-bold leading-[1.02] tracking-[-0.07em]">{title}</h2>
               <p className="mt-3 max-w-[28ch] text-sm leading-6 text-muted-foreground">{subtitle}</p>

@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,9 @@
     "assets:mobile": "powershell -ExecutionPolicy Bypass -File scripts\\generate-mobile-assets.ps1",
     "cap:sync": "npx cap sync",
     "cap:android": "npm run build && npx cap sync android",
-    "cap:ios": "npm run build && npx cap sync ios"
+    "cap:ios": "npm run build && npx cap sync ios",
+    "android:bundle:release": "powershell -ExecutionPolicy Bypass -File scripts\\android-release.ps1 -Task bundleRelease",
+    "android:assemble:release": "powershell -ExecutionPolicy Bypass -File scripts\\android-release.ps1 -Task assembleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",

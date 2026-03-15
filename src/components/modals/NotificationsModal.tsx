@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
+import BrandMark from "@/components/brand/BrandMark";
 
 interface NotificationsModalProps {
   open: boolean;
@@ -60,7 +61,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
       <DialogContent className="app-panel max-w-sm rounded-[1.9rem] border-white/10 bg-card/95 p-0 [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-full [&>button]:border [&>button]:border-white/10 [&>button]:bg-white/[0.05]">
         <DialogHeader className="px-6 pt-6">
           <DialogTitle className="flex items-center justify-center gap-2 text-center text-xl font-bold">
-            <Bell className="text-primary" size={20} />
+            <BrandMark className="h-11 w-11 rounded-[1.2rem] border-white/10 bg-black/30" imageClassName="h-7 w-7" />
             Notificacoes
             {unreadCount > 0 && (
               <span className="orange-glow rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
@@ -93,7 +94,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
               </div>
             ) : notifications.length === 0 ? (
               <div className="app-panel-soft rounded-[1.6rem] py-10 text-center">
-                <Bell size={44} className="mx-auto mb-3 text-muted-foreground/30" />
+                <BrandMark className="mx-auto mb-4 h-16 w-16 rounded-[1.4rem] border-white/10 bg-black/25" imageClassName="h-10 w-10" />
                 <p className="text-muted-foreground">Nenhuma notificacao</p>
                 <p className="mt-1 text-xs text-muted-foreground/70">
                   Quando houver atividade relevante, ela aparecera aqui em tempo real.

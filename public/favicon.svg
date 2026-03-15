@@ -1,19 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="WEMOVELT favicon">
   <defs>
-    <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f97316"/>
-      <stop offset="100%" style="stop-color:#dc2626"/>
+    <linearGradient id="wmFaviconBg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#17110c" />
+      <stop offset="1" stop-color="#070707" />
+    </linearGradient>
+    <linearGradient id="wmFaviconBadge" x1="18" y1="14" x2="46" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8b2d" />
+      <stop offset="1" stop-color="#ff6a00" />
     </linearGradient>
   </defs>
-  <circle cx="16" cy="16" r="16" fill="url(#wg)"/>
-  <!-- Barra central -->
-  <rect x="7" y="14.5" width="18" height="3" rx="1.5" fill="white"/>
-  <!-- Disco externo esquerdo -->
-  <rect x="5" y="12" width="2.5" height="8" rx="1" fill="white"/>
-  <!-- Disco interno esquerdo -->
-  <rect x="8" y="10.5" width="3" height="11" rx="1" fill="white"/>
-  <!-- Disco interno direito -->
-  <rect x="21" y="10.5" width="3" height="11" rx="1" fill="white"/>
-  <!-- Disco externo direito -->
-  <rect x="24.5" y="12" width="2.5" height="8" rx="1" fill="white"/>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#wmFaviconBg)" />
+  <circle cx="32" cy="32" r="18" fill="url(#wmFaviconBadge)" />
+  <ellipse cx="29" cy="25" rx="8" ry="3.6" fill="#fff" opacity=".16" />
+  <text
+    x="32"
+    y="35.2"
+    fill="#111111"
+    font-family="Space Grotesk, Arial Black, Arial, sans-serif"
+    font-size="11.8"
+    font-weight="700"
+    letter-spacing="-0.06em"
+    text-anchor="middle"
+  >
+    WM
+  </text>
 </svg>

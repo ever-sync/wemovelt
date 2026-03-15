@@ -1,13 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Dumbbell, Loader2, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Play, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { prefetchAuthFlow, prefetchPrimaryRoutes } from "@/lib/prefetch";
+import BrandLockup from "@/components/brand/BrandLockup";
 
 const AuthModal = lazy(() => import("@/components/modals/AuthModal"));
-
-const heroImageBase = "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -51,9 +50,7 @@ const Welcome = () => {
       <div className="app-screen">
         <section className="relative min-h-[calc(100vh-3rem)] overflow-hidden rounded-[2.4rem] border border-white/8 bg-black">
           <img
-            src={`${heroImageBase}&w=960`}
-            srcSet={`${heroImageBase}&w=640 640w, ${heroImageBase}&w=960 960w, ${heroImageBase}&w=1280 1280w`}
-            sizes="(max-width: 768px) 100vw, 28rem"
+            src="/125729.jpg"
             alt="Atleta treinando com pesos"
             className="absolute inset-0 h-full w-full object-cover"
             fetchPriority="high"
@@ -66,15 +63,12 @@ const Welcome = () => {
           <div className="relative z-10 flex min-h-[calc(100vh-3rem)] flex-col justify-between p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 backdrop-blur">
-                <div className="flex items-center gap-2">
-                  <div className="orange-glow flex h-8 w-8 items-center justify-center rounded-full wemovelt-gradient text-primary-foreground">
-                    <Dumbbell size={14} />
-                  </div>
-                  <div>
-                    <p className="text-[0.62rem] uppercase tracking-[0.26em] text-primary/90">Outdoor fitness</p>
-                    <p className="text-sm font-bold tracking-[-0.04em] text-white">WEMOVELT</p>
-                  </div>
-                </div>
+                <BrandLockup
+                  compact
+                  iconClassName="h-8 w-8"
+                  kickerClassName="text-[0.62rem] text-primary/90"
+                  titleClassName="text-sm tracking-[-0.04em] text-white"
+                />
               </div>
 
               <button

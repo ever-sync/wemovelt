@@ -109,3 +109,55 @@ Notes:
 - Android builds require Android Studio
 - iOS builds and App Store submission require macOS with Xcode
 - Update the `appId` in `capacitor.config.ts` before publishing to the stores so it matches your final bundle identifier
+
+## Google Play release
+
+This project already uses:
+
+- `applicationId`: `br.academias.wemovelt`
+- `targetSdkVersion`: `36`
+- Android App Bundle friendly build output
+
+Prepare release signing:
+
+```sh
+copy android\keystore.properties.example android\keystore.properties
+```
+
+Then fill `android/keystore.properties` with your upload key data, or provide the same values using environment variables:
+
+- `ANDROID_KEYSTORE_PATH`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Optional release version overrides:
+
+- `WEMOVELT_VERSION_CODE`
+- `WEMOVELT_VERSION_NAME`
+
+Build the Play Store bundle:
+
+```sh
+npm run android:bundle:release
+```
+
+The release script tries to auto-detect:
+
+- Android Studio JBR/JDK
+- Android SDK in `%LOCALAPPDATA%\\Android\\Sdk`
+- Release signing config from `android/keystore.properties` or the `ANDROID_KEY*` environment variables
+
+Expected artifact:
+
+```sh
+android\app\build\outputs\bundle\release\app-release.aab
+```
+
+Before upload, make sure the Play Console listing is ready for:
+
+- App access
+- Data safety
+- Content rating
+- Privacy policy URL
+- Camera and location permission disclosures

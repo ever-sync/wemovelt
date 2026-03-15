@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import BrandMark from "@/components/brand/BrandMark";
 import LegalDocument from "@/components/legal/LegalDocument";
 import { termsLastUpdated, termsSections } from "@/content/legal";
 
@@ -14,8 +15,11 @@ const Termos = () => {
               <ArrowLeft size={18} />
             </Link>
           </Button>
-          <div className="orange-glow flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <FileText size={18} />
+          <div className="relative">
+            <BrandMark className="orange-glow h-11 w-11 rounded-[1rem] border-white/10 bg-black/30" imageClassName="h-7 w-7" />
+            <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <FileText size={10} />
+            </div>
           </div>
           <div>
             <p className="app-kicker">Legal</p>
