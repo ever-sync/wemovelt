@@ -1,9 +1,8 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Bell, Shield, Globe, FileText, ChevronRight } from "lucide-react";
-import { useState } from "react";
-import TermsModal from "./TermsModal";
-import PrivacyModal from "./PrivacyModal";
+import { Bell, ChevronRight, FileText, Globe, Settings, Shield } from "lucide-react";
 
 interface SettingsModalProps {
   open: boolean;
@@ -11,102 +10,95 @@ interface SettingsModalProps {
 }
 
 const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
+
+  const openLegalPage = (path: "/termos" | "/privacidade") => {
+    onOpenChange(false);
+    navigate(path);
+  };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl animate-scale-in max-h-[90vh] overflow-y-auto scrollbar-hide">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-center flex items-center justify-center gap-2">
-              <Settings className="text-primary" size={24} />
-              Configurações
-            </DialogTitle>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="app-panel max-w-sm rounded-[1.9rem] border-white/10 bg-card/95 p-0 [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-full [&>button]:border [&>button]:border-white/10 [&>button]:bg-white/[0.05]">
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle className="flex items-center justify-center gap-2 text-center text-xl font-bold">
+            <Settings className="text-primary" size={20} />
+            Configuracoes
+          </DialogTitle>
+        </DialogHeader>
 
-          <div className="space-y-4 mt-4">
-            {/* Notificações */}
-            <div className="bg-secondary rounded-xl p-4 space-y-4">
-              <div className="flex items-center gap-3 text-primary">
-                <Bell size={20} />
-                <span className="font-bold">Notificações</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
+        <div className="space-y-4 px-6 pb-6">
+          <section className="app-panel-soft rounded-[1.5rem] p-4">
+            <div className="mb-4 flex items-center gap-3 text-primary">
+              <Bell size={18} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">Notificacoes</span>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <span className="text-sm">Notificações no app</span>
-                  <p className="text-xs text-muted-foreground">Receba alertas de curtidas e comentários</p>
+                  <p className="text-sm font-medium">Alertas no app</p>
+                  <p className="text-xs text-muted-foreground">Curtidas, comentarios e avisos operacionais.</p>
                 </div>
                 <Switch checked={notifications} onCheckedChange={setNotifications} />
               </div>
-              
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <span className="text-sm">Notificações por e-mail</span>
-                  <p className="text-xs text-muted-foreground">Em breve</p>
+                  <p className="text-sm font-medium">E-mail</p>
+                  <p className="text-xs text-muted-foreground">Reservado para releases futuras.</p>
                 </div>
                 <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} disabled />
               </div>
             </div>
+          </section>
 
-            {/* Privacidade */}
-            <div className="bg-secondary rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-3 text-primary">
-                <Shield size={20} />
-                <span className="font-bold">Privacidade</span>
-              </div>
-              
-              <p className="text-xs text-muted-foreground">
-                Seus dados são protegidos. Consulte nossa política de privacidade para mais informações.
-              </p>
+          <section className="app-panel-soft rounded-[1.5rem] p-4">
+            <div className="mb-4 flex items-center gap-3 text-primary">
+              <Globe size={18} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">Idioma</span>
             </div>
-
-            {/* Idioma */}
-            <div className="bg-secondary rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-3 text-primary">
-                <Globe size={20} />
-                <span className="font-bold">Idioma</span>
-              </div>
-              
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm">Português (Brasil)</span>
-                <span className="text-xs text-muted-foreground bg-primary/20 px-2 py-1 rounded-full">Ativo</span>
-              </div>
+            <div className="flex items-center justify-between rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3">
+              <span className="text-sm">Portugues (Brasil)</span>
+              <span className="rounded-full bg-primary/12 px-3 py-1 text-xs font-semibold text-primary">Ativo</span>
             </div>
+          </section>
 
-            {/* Termos */}
-            <div className="bg-secondary rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-3 text-primary">
-                <FileText size={20} />
-                <span className="font-bold">Termos e Políticas</span>
-              </div>
-              
-              <button 
-                onClick={() => setTermsOpen(true)}
-                className="w-full flex items-center justify-between py-2 text-sm hover:text-primary transition-colors"
+          <section className="app-panel-soft rounded-[1.5rem] p-4">
+            <div className="mb-4 flex items-center gap-3 text-primary">
+              <Shield size={18} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">Privacidade</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Os documentos legais agora abrem como paginas dedicadas para evitar modal dentro de modal.
+            </p>
+          </section>
+
+          <section className="app-panel-soft rounded-[1.5rem] p-4">
+            <div className="mb-4 flex items-center gap-3 text-primary">
+              <FileText size={18} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">Documentos</span>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => openLegalPage("/termos")}
+                className="flex w-full items-center justify-between rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/[0.05]"
               >
-                <span>Termos de uso</span>
-                <ChevronRight size={18} className="text-muted-foreground" />
+                <span className="text-sm font-medium">Termos de uso</span>
+                <ChevronRight size={16} className="text-muted-foreground" />
               </button>
-              
-              <button 
-                onClick={() => setPrivacyOpen(true)}
-                className="w-full flex items-center justify-between py-2 text-sm hover:text-primary transition-colors"
+              <button
+                onClick={() => openLegalPage("/privacidade")}
+                className="flex w-full items-center justify-between rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/[0.05]"
               >
-                <span>Política de privacidade</span>
-                <ChevronRight size={18} className="text-muted-foreground" />
+                <span className="text-sm font-medium">Politica de privacidade</span>
+                <ChevronRight size={16} className="text-muted-foreground" />
               </button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <TermsModal open={termsOpen} onOpenChange={setTermsOpen} />
-      <PrivacyModal open={privacyOpen} onOpenChange={setPrivacyOpen} />
-    </>
+          </section>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

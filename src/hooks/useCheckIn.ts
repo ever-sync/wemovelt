@@ -2,20 +2,13 @@ import { useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Tables } from "@/integrations/supabase/types";
 import { startOfWeek, format, addDays, parseISO, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const STALE_TIME = 1000 * 60; // 1 minute for check-ins
+const STALE_TIME = 1000 * 60;
 
-export interface CheckIn {
-  id: string;
-  user_id: string;
-  gym_id: string | null;
-  method: string;
-  lat: number | null;
-  lng: number | null;
-  created_at: string | null;
-}
+export type CheckIn = Tables<"check_ins">;
 
 export interface WeekDay {
   day: string;
@@ -32,18 +25,18 @@ export interface UseCheckInReturn {
   weeklyPercentage: number;
   todayCheckedIn: boolean;
   weekData: WeekDay[];
-  registerCheckIn: (gymId: string, lat?: number, lng?: number) => Promise<CheckIn>;
+  registerGeoCheckIn: (gymId: string, lat: number, lng: number) => Promise<CheckIn>;
+  registerQrCheckIn: (qrCode: string) => Promise<CheckIn>;
   getCheckInsForDate: (date: string) => CheckIn[];
 }
 
 const calculateStreak = (checkIns: CheckIn[]): number => {
   if (checkIns.length === 0) return 0;
 
-  // Get unique dates sorted descending
   const sortedDates = [...new Set(
     checkIns
       .filter((c) => c.created_at)
-      .map((c) => format(parseISO(c.created_at!), "yyyy-MM-dd"))
+      .map((c) => format(parseISO(c.created_at!), "yyyy-MM-dd")),
   )].sort().reverse();
 
   if (sortedDates.length === 0) return 0;
@@ -51,7 +44,6 @@ const calculateStreak = (checkIns: CheckIn[]): number => {
   const today = format(new Date(), "yyyy-MM-dd");
   const yesterday = format(addDays(new Date(), -1), "yyyy-MM-dd");
 
-  // Check if the most recent check-in is today or yesterday
   if (sortedDates[0] !== today && sortedDates[0] !== yesterday) {
     return 0;
   }
@@ -60,12 +52,12 @@ const calculateStreak = (checkIns: CheckIn[]): number => {
   let currentDate = parseISO(sortedDates[0]);
 
   for (let i = 1; i < sortedDates.length; i++) {
-    const prevDate = parseISO(sortedDates[i]);
-    const diff = differenceInDays(currentDate, prevDate);
+    const previousDate = parseISO(sortedDates[i]);
+    const diff = differenceInDays(currentDate, previousDate);
 
     if (diff === 1) {
       streak++;
-      currentDate = prevDate;
+      currentDate = previousDate;
     } else {
       break;
     }
@@ -74,11 +66,35 @@ const calculateStreak = (checkIns: CheckIn[]): number => {
   return streak;
 };
 
+const normalizeCheckInError = (error: unknown): Error => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("CHECKIN_ALREADY_REGISTERED_TODAY")) {
+    return new Error("Voce ja registrou check-in hoje.");
+  }
+  if (message.includes("CHECKIN_OUTSIDE_ALLOWED_RADIUS")) {
+    return new Error("Voce esta fora do raio permitido para check-in.");
+  }
+  if (message.includes("INVALID_QR_CODE")) {
+    return new Error("QR Code invalido ou nao cadastrado.");
+  }
+  if (message.includes("MISSING_QR_CODE")) {
+    return new Error("Informe um QR Code valido.");
+  }
+  if (message.includes("MISSING_GEO_CHECKIN_DATA")) {
+    return new Error("Dados de localizacao insuficientes para check-in.");
+  }
+  if (message.includes("GYM_NOT_FOUND")) {
+    return new Error("Academia nao encontrada.");
+  }
+
+  return new Error(message);
+};
+
 export const useCheckIn = (): UseCheckInReturn => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch check-ins from database
   const { data: checkIns = [], isLoading, error } = useQuery({
     queryKey: ["check-ins", user?.id],
     queryFn: async () => {
@@ -86,7 +102,7 @@ export const useCheckIn = (): UseCheckInReturn => {
 
       const { data, error } = await supabase
         .from("check_ins")
-        .select("id, user_id, gym_id, method, lat, lng, created_at")
+        .select("id, user_id, gym_id, equipment_id, method, lat, lng, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -97,34 +113,37 @@ export const useCheckIn = (): UseCheckInReturn => {
     staleTime: STALE_TIME,
   });
 
-  // Register check-in mutation (GPS only)
   const registerMutation = useMutation({
-    mutationFn: async ({
-      gymId,
-      lat,
-      lng,
-    }: {
-      gymId: string;
-      lat?: number;
-      lng?: number;
-    }) => {
-      if (!user) throw new Error("Usuário não autenticado");
+    mutationFn: async (
+      input:
+        | { method: "geo"; gymId: string; lat: number; lng: number }
+        | { method: "qr"; qrCode: string },
+    ) => {
+      if (!user) throw new Error("Usuario nao autenticado");
 
-      const { data, error } = await supabase
-        .from("check_ins")
-        .insert({
-          user_id: user.id,
-          gym_id: gymId,
-          method: "geo",
-          lat: lat || null,
-          lng: lng || null,
-        })
-        .select()
-        .single();
+      const rpcArgs =
+        input.method === "geo"
+          ? {
+              p_method: "geo",
+              p_gym_id: input.gymId,
+              p_lat: input.lat,
+              p_lng: input.lng,
+              p_qr_code: null,
+            }
+          : {
+              p_method: "qr",
+              p_gym_id: null,
+              p_lat: null,
+              p_lng: null,
+              p_qr_code: input.qrCode.trim(),
+            };
 
-      if (error) throw error;
+      const { data, error } = await supabase.rpc("register_check_in_secure", rpcArgs);
 
-      // Vibrate on success if available
+      if (error) {
+        throw normalizeCheckInError(error);
+      }
+
       if (navigator.vibrate) {
         navigator.vibrate(200);
       }
@@ -136,69 +155,69 @@ export const useCheckIn = (): UseCheckInReturn => {
     },
   });
 
-  const registerCheckIn = useCallback(
-    async (gymId: string, lat?: number, lng?: number): Promise<CheckIn> => {
-      return registerMutation.mutateAsync({ gymId, lat, lng });
+  const registerGeoCheckIn = useCallback(
+    async (gymId: string, lat: number, lng: number) => {
+      return registerMutation.mutateAsync({ method: "geo", gymId, lat, lng });
     },
-    [registerMutation]
+    [registerMutation],
+  );
+
+  const registerQrCheckIn = useCallback(
+    async (qrCode: string) => {
+      return registerMutation.mutateAsync({ method: "qr", qrCode });
+    },
+    [registerMutation],
   );
 
   const getCheckInsForDate = useCallback(
     (date: string): CheckIn[] => {
       return checkIns.filter(
-        (c) => c.created_at && format(parseISO(c.created_at), "yyyy-MM-dd") === date
+        (checkIn) => checkIn.created_at && format(parseISO(checkIn.created_at), "yyyy-MM-dd") === date,
       );
     },
-    [checkIns]
+    [checkIns],
   );
 
-  // Calculate week data
   const weekData = useMemo((): WeekDay[] => {
     const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
-    const days: WeekDay[] = [];
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
     const todayStr = format(today, "yyyy-MM-dd");
     const checkInDates = new Set(
       checkIns
-        .filter((c) => c.created_at)
-        .map((c) => format(parseISO(c.created_at!), "yyyy-MM-dd"))
+        .filter((checkIn) => checkIn.created_at)
+        .map((checkIn) => format(parseISO(checkIn.created_at!), "yyyy-MM-dd")),
     );
 
-    for (let i = 0; i < 7; i++) {
-      const date = addDays(weekStart, i);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(weekStart, index);
       const dateStr = format(date, "yyyy-MM-dd");
       const isFuture = dateStr > todayStr;
       const hasCheckIn = checkInDates.has(dateStr);
 
-      days.push({
-        day:
-          format(date, "EEE", { locale: ptBR }).slice(0, 3).charAt(0).toUpperCase() +
-          format(date, "EEE", { locale: ptBR }).slice(1, 3),
+      const shortDay = format(date, "EEE", { locale: ptBR });
+
+      return {
+        day: shortDay.slice(0, 1).toUpperCase() + shortDay.slice(1, 3),
         date: date.getDate(),
         fullDate: dateStr,
         checked: isFuture ? null : hasCheckIn,
-      });
-    }
-
-    return days;
+      };
+    });
   }, [checkIns]);
 
-  // Calculate today's status
   const todayCheckedIn = useMemo(() => {
     const today = format(new Date(), "yyyy-MM-dd");
     return checkIns.some(
-      (c) => c.created_at && format(parseISO(c.created_at), "yyyy-MM-dd") === today
+      (checkIn) => checkIn.created_at && format(parseISO(checkIn.created_at), "yyyy-MM-dd") === today,
     );
   }, [checkIns]);
 
-  // Calculate streak
   const streak = useMemo(() => calculateStreak(checkIns), [checkIns]);
 
-  // Calculate weekly percentage
   const weeklyPercentage = useMemo(() => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const pastDays = weekData.filter((d) => d.fullDate <= today);
-    const checkedDays = pastDays.filter((d) => d.checked === true).length;
+    const pastDays = weekData.filter((day) => day.fullDate <= today);
+    const checkedDays = pastDays.filter((day) => day.checked === true).length;
     return pastDays.length > 0 ? Math.round((checkedDays / pastDays.length) * 100) : 0;
   }, [weekData]);
 
@@ -210,7 +229,8 @@ export const useCheckIn = (): UseCheckInReturn => {
     weeklyPercentage,
     todayCheckedIn,
     weekData,
-    registerCheckIn,
+    registerGeoCheckIn,
+    registerQrCheckIn,
     getCheckInsForDate,
   };
 };

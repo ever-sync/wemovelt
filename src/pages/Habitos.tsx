@@ -9,61 +9,53 @@ import WeeklyHabitChart from "@/components/WeeklyHabitChart";
 import { useHabits } from "@/hooks/useHabits";
 
 const categories = [
-  { 
+  {
     id: "hydration",
-    icon: Droplets, 
-    label: "Hidratação", 
-    color: "bg-blue-500/20",
-    iconColor: "text-blue-400",
-    description: "Beba água regularmente",
+    icon: Droplets,
+    label: "Hidratacao",
+    description: "Beba agua de forma constante.",
     tips: [
-      "Beba pelo menos 2 litros de água por dia",
-      "Tenha sempre uma garrafa de água por perto",
-      "Beba um copo de água ao acordar",
-      "Evite esperar sentir sede para beber"
-    ]
+      "Beba pelo menos 2 litros de agua por dia",
+      "Tenha sempre uma garrafa por perto",
+      "Beba agua ao acordar",
+      "Nao espere sentir sede para beber",
+    ],
   },
-  { 
+  {
     id: "sleep",
-    icon: Moon, 
-    label: "Sono", 
-    color: "bg-purple-500/20",
-    iconColor: "text-purple-400",
-    description: "Descanse bem",
+    icon: Moon,
+    label: "Sono",
+    description: "Recupere energia com constancia.",
     tips: [
       "Durma de 7 a 9 horas por noite",
-      "Mantenha horários regulares de sono",
-      "Evite telas 1 hora antes de dormir",
-      "Crie um ambiente escuro e silencioso"
-    ]
+      "Mantenha horarios regulares",
+      "Evite telas antes de dormir",
+      "Escureca e silencie o ambiente",
+    ],
   },
-  { 
+  {
     id: "nutrition",
-    icon: Apple, 
-    label: "Alimentação", 
-    color: "bg-green-500/20",
-    iconColor: "text-green-400",
-    description: "Coma de forma equilibrada",
+    icon: Apple,
+    label: "Alimentacao",
+    description: "Coma melhor para sustentar a rotina.",
     tips: [
-      "Faça 5 a 6 refeições por dia",
-      "Inclua frutas e vegetais em todas as refeições",
-      "Evite alimentos ultraprocessados",
-      "Mastigue bem os alimentos"
-    ]
+      "Distribua melhor as refeicoes",
+      "Inclua frutas e vegetais",
+      "Evite ultraprocessados",
+      "Mastigue com calma",
+    ],
   },
-  { 
+  {
     id: "wellness",
-    icon: Smile, 
-    label: "Bem-estar", 
-    color: "bg-yellow-500/20",
-    iconColor: "text-yellow-400",
-    description: "Cuide da sua mente",
+    icon: Smile,
+    label: "Bem-estar",
+    description: "Proteja a mente e mantenha leveza.",
     tips: [
-      "Reserve tempo para atividades que você gosta",
-      "Pratique respiração profunda diariamente",
-      "Mantenha conexões sociais saudáveis",
-      "Celebre pequenas conquistas"
-    ]
+      "Separe tempo para o que voce gosta",
+      "Respire fundo todos os dias",
+      "Mantenha conexoes saudaveis",
+      "Celebre pequenas conquistas",
+    ],
   },
 ];
 
@@ -71,92 +63,103 @@ const Habitos = () => {
   const [selectedHabit, setSelectedHabit] = useState<typeof categories[0] | null>(null);
   const { weeklyStats, isLoading, isHabitCompleted } = useHabits();
 
-  // Calculate total completed today using actual today's logs
-  const totalCompletedToday = [
-    "hydration", 
-    "sleep", 
-    "nutrition", 
-    "wellness"
-  ].filter(type => isHabitCompleted(type)).length;
+  const totalCompletedToday = ["hydration", "sleep", "nutrition", "wellness"].filter((type) =>
+    isHabitCompleted(type),
+  ).length;
 
   return (
-    <div className="min-h-screen bg-background" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
+    <div className="app-shell" style={{ paddingBottom: "calc(8.5rem + env(safe-area-inset-bottom))" }}>
       <Header />
-      
-      <main className="pt-[calc(5rem+env(safe-area-inset-top))] px-4 max-w-md mx-auto space-y-6">
-        {/* Hero */}
+
+      <main className="app-screen space-y-5 pt-[calc(6.75rem+env(safe-area-inset-top))]">
         <section className="animate-fade-in">
-          <div className="wemovelt-gradient rounded-2xl p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-foreground/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <Heart className="mb-3" size={32} />
-            <h1 className="text-2xl font-bold mb-2">Hábitos Saudáveis</h1>
-            <p className="text-foreground/80 text-sm">
-              Pequenas mudanças diárias geram grandes resultados
-            </p>
-            
-            {!isLoading && (
-              <div className="mt-4 flex items-center gap-2 bg-foreground/10 rounded-xl px-4 py-2 w-fit">
-                <TrendingUp size={16} />
-                <span className="text-sm font-medium">
-                  {totalCompletedToday}/4 hábitos hoje
-                </span>
+          <div className="app-panel relative overflow-hidden rounded-[2rem] p-6">
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-primary/18 blur-3xl" />
+            <div className="relative z-10">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="orange-glow flex h-12 w-12 items-center justify-center rounded-[1.35rem] wemovelt-gradient text-primary-foreground">
+                  <Heart size={22} />
+                </div>
+                <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                  Daily care
+                </div>
               </div>
-            )}
+              <p className="app-kicker">Saude e constancia</p>
+              <h1 className="mt-2 text-[2rem] font-bold tracking-[-0.07em]">Habitos que sustentam o treino.</h1>
+              <p className="mt-3 max-w-[30ch] text-sm leading-6 text-muted-foreground">
+                Menos ruido, mais repeticao. Marque sua rotina e acompanhe consistencia.
+              </p>
+
+              {!isLoading && (
+                <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary/12 px-4 py-2 text-sm font-medium text-primary">
+                  <TrendingUp size={16} />
+                  {totalCompletedToday}/4 habitos hoje
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
-        {/* Daily Habit Tracker */}
         <section className="animate-slide-up">
           <HabitTracker />
         </section>
 
-        {/* Categories */}
         <section className="animate-slide-up" style={{ animationDelay: "0.05s" }}>
-          <h2 className="text-lg font-bold mb-4">Categorias</h2>
-          
+          <div className="mb-4">
+            <p className="app-kicker">Categorias</p>
+            <h2 className="app-section-title mt-1">Pilares da rotina</h2>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             {categories.map((category) => {
               const Icon = category.icon;
-              const stats = weeklyStats.find(s => s.type === category.id);
-              
+              const stats = weeklyStats.find((item) => item.type === category.id);
+
               return (
-                <div
+                <button
                   key={category.id}
                   onClick={() => setSelectedHabit(category)}
-                  className={`${category.color} rounded-2xl p-5 cursor-pointer hover:scale-[1.02] transition-transform relative overflow-hidden`}
+                  className="app-panel-soft relative overflow-hidden rounded-[1.6rem] p-5 text-left transition-transform hover:-translate-y-1"
                 >
-                  <Icon className={`${category.iconColor} mb-3`} size={32} />
-                  <h3 className="font-bold mb-1">{category.label}</h3>
-                  <p className="text-xs text-muted-foreground">{category.description}</p>
-                  
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                    <Icon size={20} />
+                  </div>
+                  <h3 className="font-bold tracking-[-0.03em]">{category.label}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{category.description}</p>
+
                   {stats && stats.streak > 0 && (
-                    <div className="absolute top-3 right-3 bg-orange-500/20 text-orange-400 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                      🔥 {stats.streak}
+                    <div className="absolute right-3 top-3 rounded-full bg-primary/12 px-2 py-1 text-xs font-bold text-primary">
+                      streak {stats.streak}
                     </div>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
         </section>
 
-        {/* Weekly Progress Chart */}
         <section className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          <div className="mb-4">
+            <p className="app-kicker">Progresso</p>
+            <h2 className="app-section-title mt-1">Semana atual</h2>
+          </div>
           <WeeklyHabitChart />
         </section>
 
-        {/* Quick Tips */}
         <section className="animate-slide-up" style={{ animationDelay: "0.15s" }}>
-          <h2 className="text-lg font-bold mb-4">Dica do dia</h2>
-          <div className="bg-card rounded-2xl p-5">
+          <div className="mb-4">
+            <p className="app-kicker">Dica rapida</p>
+            <h2 className="app-section-title mt-1">Micro-ajuste do dia</h2>
+          </div>
+          <div className="app-panel rounded-[1.6rem] p-5">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 wemovelt-gradient rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="orange-glow flex h-12 w-12 shrink-0 items-center justify-center rounded-xl wemovelt-gradient text-primary-foreground">
                 <Droplets size={24} />
               </div>
               <div>
-                <h3 className="font-bold mb-1">Mantenha-se hidratado</h3>
-                <p className="text-sm text-muted-foreground">
-                  Beber água antes, durante e após o treino ajuda na recuperação muscular e melhora seu desempenho.
+                <h3 className="font-bold tracking-[-0.03em]">Hidrate antes do treino</h3>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Agua antes, durante e depois ajuda na recuperacao e reduz a queda de desempenho.
                 </p>
               </div>
             </div>
@@ -165,8 +168,8 @@ const Habitos = () => {
       </main>
 
       <BottomNav />
-      
-      <HabitModal 
+
+      <HabitModal
         habit={selectedHabit}
         open={!!selectedHabit}
         onOpenChange={(open) => !open && setSelectedHabit(null)}

@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Plus, Target, Calendar, Sparkles, FolderPlus, List, Check, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useWorkouts, WorkoutWithExercises } from "@/hooks/useWorkouts";
+import { useWorkouts } from "@/hooks/useWorkouts";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Equipment } from "@/hooks/useEquipment";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AddToWorkoutModalProps {
   equipment: Equipment | null;
@@ -97,8 +98,6 @@ const AddToWorkoutModal = ({ equipment, open, onOpenChange, onSuccess }: AddToWo
 
     setIsAdding(true);
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      
       // Get current exercise count to determine order
       const workout = workouts.find(w => w.id === selectedWorkout);
       const orderIndex = workout?.workout_exercises?.length ?? 0;

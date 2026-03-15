@@ -46,18 +46,22 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete }: PostCardProps)
   };
 
   return (
-    <article className="p-4 animate-fade-in">
-      {/* Post header */}
-      <div className="flex items-center justify-between mb-3">
+    <article
+      className="app-panel mx-4 mb-3 rounded-[1.8rem] p-4 animate-fade-in"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "420px" }}
+    >
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {post.profiles?.avatar_url ? (
             <img
               src={post.profiles.avatar_url}
               alt={getDisplayName()}
               className="w-10 h-10 rounded-full object-cover"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
-            <div className="w-10 h-10 wemovelt-gradient rounded-full flex items-center justify-center font-bold text-white">
+            <div className="orange-glow flex h-10 w-10 items-center justify-center rounded-full wemovelt-gradient font-bold text-primary-foreground">
               {getInitial()}
             </div>
           )}
@@ -72,7 +76,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete }: PostCardProps)
         {isOwner && onDelete && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
+              <button className="app-icon-button flex h-10 w-10 items-center justify-center">
                 <MoreHorizontal size={18} className="text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
@@ -89,21 +93,21 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete }: PostCardProps)
         )}
       </div>
 
-      {/* Post content */}
-      <p className="text-sm mb-3 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+      <p className="mb-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{post.content}</p>
 
       {post.image_url && (
-        <div className="rounded-2xl overflow-hidden mb-3">
+        <div className="mb-3 overflow-hidden rounded-[1.5rem]">
           <img
             src={post.image_url}
             alt="Post"
             className="w-full h-48 object-cover"
+            loading="lazy"
+            decoding="async"
           />
         </div>
       )}
 
-      {/* Post actions */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-6 rounded-full border border-white/6 bg-white/[0.03] px-4 py-3">
         <button
           onClick={() => onLike(post.id)}
           className={`flex items-center gap-2 transition-all ${

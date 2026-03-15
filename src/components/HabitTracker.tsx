@@ -3,37 +3,37 @@ import { useHabits } from "@/hooks/useHabits";
 import { cn } from "@/lib/utils";
 
 const habits = [
-  { 
-    type: "hydration", 
-    icon: Droplets, 
-    label: "Hidratação", 
-    color: "bg-blue-500/20",
-    activeColor: "bg-blue-500",
-    iconColor: "text-blue-400",
+  {
+    type: "hydration",
+    icon: Droplets,
+    label: "Hidratacao",
+    color: "bg-white/[0.04]",
+    activeColor: "bg-primary text-primary-foreground",
+    iconColor: "text-primary",
   },
-  { 
-    type: "sleep", 
-    icon: Moon, 
-    label: "Sono", 
-    color: "bg-purple-500/20",
-    activeColor: "bg-purple-500",
-    iconColor: "text-purple-400",
+  {
+    type: "sleep",
+    icon: Moon,
+    label: "Sono",
+    color: "bg-white/[0.04]",
+    activeColor: "bg-primary text-primary-foreground",
+    iconColor: "text-foreground",
   },
-  { 
-    type: "nutrition", 
-    icon: Apple, 
-    label: "Alimentação", 
-    color: "bg-green-500/20",
-    activeColor: "bg-green-500",
-    iconColor: "text-green-400",
+  {
+    type: "nutrition",
+    icon: Apple,
+    label: "Alimentacao",
+    color: "bg-white/[0.04]",
+    activeColor: "bg-primary text-primary-foreground",
+    iconColor: "text-foreground",
   },
-  { 
-    type: "wellness", 
-    icon: Smile, 
-    label: "Bem-estar", 
-    color: "bg-yellow-500/20",
-    activeColor: "bg-yellow-500",
-    iconColor: "text-yellow-400",
+  {
+    type: "wellness",
+    icon: Smile,
+    label: "Bem-estar",
+    color: "bg-white/[0.04]",
+    activeColor: "bg-primary text-primary-foreground",
+    iconColor: "text-foreground",
   },
 ];
 
@@ -54,10 +54,10 @@ const HabitTracker = ({ compact = false }: HabitTrackerProps) => {
 
   if (isLoading) {
     return (
-      <div className="bg-card rounded-2xl p-4">
+      <div className="app-panel rounded-[1.6rem] p-4">
         <div className="animate-pulse space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-14 bg-secondary rounded-xl" />
+            <div key={i} className="h-14 rounded-xl bg-white/[0.06]" />
           ))}
         </div>
       </div>
@@ -69,23 +69,19 @@ const HabitTracker = ({ compact = false }: HabitTrackerProps) => {
       <div className="flex gap-2">
         {habits.map(({ type, icon: Icon, color, activeColor, iconColor }) => {
           const completed = isHabitCompleted(type);
-          
+
           return (
             <button
               key={type}
               onClick={() => handleToggle(type)}
               disabled={isToggling}
               className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                completed ? activeColor : color,
-                isToggling && "opacity-50"
+                "flex h-12 w-12 items-center justify-center rounded-xl transition-all",
+                completed ? `${activeColor} orange-glow` : color,
+                isToggling && "opacity-50",
               )}
             >
-              {completed ? (
-                <Check className="text-white" size={20} />
-              ) : (
-                <Icon className={iconColor} size={20} />
-              )}
+              {completed ? <Check className="text-primary-foreground" size={20} /> : <Icon className={iconColor} size={20} />}
             </button>
           );
         })}
@@ -94,49 +90,52 @@ const HabitTracker = ({ compact = false }: HabitTrackerProps) => {
   }
 
   return (
-    <div className="bg-card rounded-2xl p-4 space-y-3">
-      <h3 className="font-bold text-sm text-muted-foreground">HÁBITOS DE HOJE</h3>
-      
+    <div className="app-panel rounded-[1.6rem] p-4 space-y-3" style={{ contentVisibility: "auto", containIntrinsicSize: "320px" }}>
+      <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-muted-foreground">
+        Habitos de hoje
+      </h3>
+
       {habits.map(({ type, icon: Icon, label, color, activeColor, iconColor }) => {
         const completed = isHabitCompleted(type);
         const streak = getStreakForHabit(type);
-        
+
         return (
           <button
             key={type}
             onClick={() => handleToggle(type)}
             disabled={isToggling}
             className={cn(
-              "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
-              completed ? activeColor : color,
-              isToggling && "opacity-50"
+              "flex w-full items-center gap-3 rounded-[1.2rem] p-3 transition-all",
+              completed ? `${activeColor} orange-glow` : color,
+              isToggling && "opacity-50",
             )}
           >
-            <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center",
-              completed ? "bg-white/20" : "bg-background/50"
-            )}>
+            <div
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-xl",
+                completed ? "bg-black/10" : "bg-black/20",
+              )}
+            >
               {completed ? (
-                <Check className="text-white" size={20} />
+                <Check className="text-primary-foreground" size={20} />
               ) : (
                 <Icon className={iconColor} size={20} />
               )}
             </div>
-            
+
             <div className="flex-1 text-left">
-              <span className={cn(
-                "font-medium",
-                completed && "text-white"
-              )}>
+              <span className={cn("font-medium", completed ? "text-primary-foreground" : "text-foreground")}>
                 {label}
               </span>
             </div>
-            
+
             {streak > 0 && (
-              <div className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold",
-                completed ? "bg-white/20 text-white" : "bg-orange-500/20 text-orange-400"
-              )}>
+              <div
+                className={cn(
+                  "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold",
+                  completed ? "bg-black/10 text-primary-foreground" : "bg-primary/12 text-primary",
+                )}
+              >
                 <Flame size={12} />
                 {streak}
               </div>

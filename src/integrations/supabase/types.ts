@@ -597,12 +597,70 @@ export type Database = {
       }
     }
     Functions: {
+      create_workout_with_exercises: {
+        Args: {
+          p_description?: string | null
+          p_difficulty?: string | null
+          p_exercises?: Json | null
+          p_frequency?: number | null
+          p_name: string
+          p_objective?: string | null
+        }
+        Returns: Database["public"]["Tables"]["workouts"]["Row"]
+      }
+      get_active_goals_with_progress: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string | null
+          current: number
+          id: string
+          is_active: boolean | null
+          percentage: number
+          target: number
+          title: string
+          type: string
+          unit: string
+          updated_at: string | null
+          user_id: string
+        }[]
+      }
+      get_posts_feed: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          comments_count: number
+          content: string
+          created_at: string | null
+          id: string
+          image_url: string | null
+          likes_count: number
+          profile_avatar_url: string | null
+          profile_id: string | null
+          profile_name: string | null
+          profile_username: string | null
+          updated_at: string | null
+          user_has_liked: boolean
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      register_check_in_secure: {
+        Args: {
+          p_gym_id?: string | null
+          p_lat?: number | null
+          p_lng?: number | null
+          p_method: string
+          p_qr_code?: string | null
+        }
+        Returns: Database["public"]["Tables"]["check_ins"]["Row"]
       }
     }
     Enums: {

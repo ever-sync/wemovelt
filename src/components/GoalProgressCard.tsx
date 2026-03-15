@@ -12,7 +12,7 @@ const GoalProgressCard = ({ goal, onDelete }: GoalProgressCardProps) => {
   const remaining = Math.max(0, goal.target - goal.current);
   
   return (
-    <div className="bg-card rounded-2xl p-4">
+    <div className="app-panel rounded-[1.6rem] p-4" style={{ contentVisibility: "auto", containIntrinsicSize: "140px" }}>
       <div className="flex items-center justify-between mb-2">
         <span className={cn(
           "font-medium",
@@ -35,7 +35,7 @@ const GoalProgressCard = ({ goal, onDelete }: GoalProgressCardProps) => {
       </div>
       
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
           <div 
             className={cn(
               "h-full transition-all duration-500",

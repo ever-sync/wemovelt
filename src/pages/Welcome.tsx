@@ -1,9 +1,13 @@
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowRight, Dumbbell, Loader2, Play, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import AuthModal from "@/components/modals/AuthModal";
-import { Loader2 } from "lucide-react";
+import { prefetchAuthFlow, prefetchPrimaryRoutes } from "@/lib/prefetch";
+
+const AuthModal = lazy(() => import("@/components/modals/AuthModal"));
+
+const heroImageBase = "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -11,16 +15,20 @@ const Welcome = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
 
-  // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
       navigate("/home", { replace: true });
     }
   }, [user, loading, navigate]);
 
+  useEffect(() => {
+    prefetchAuthFlow();
+  }, []);
+
   const handleAuth = (mode: "login" | "register") => {
     setAuthMode(mode);
     setAuthModalOpen(true);
+    prefetchPrimaryRoutes();
   };
 
   const handleAuthSuccess = () => {
@@ -30,83 +38,125 @@ const Welcome = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen wemovelt-gradient flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-foreground" />
+      <div className="app-shell flex min-h-screen items-center justify-center">
+        <div className="app-panel flex h-20 w-20 items-center justify-center rounded-[2rem]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen wemovelt-gradient flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-20 left-10 w-32 h-32 border-2 border-foreground rounded-full" />
-        <div className="absolute bottom-40 right-5 w-24 h-24 border-2 border-foreground rounded-full" />
-        <div className="absolute top-1/3 right-10 w-16 h-16 border-2 border-foreground rounded-full" />
-      </div>
+    <div className="app-shell min-h-screen px-4 py-6">
+      <div className="app-screen">
+        <section className="relative min-h-[calc(100vh-3rem)] overflow-hidden rounded-[2.4rem] border border-white/8 bg-black">
+          <img
+            src={`${heroImageBase}&w=960`}
+            srcSet={`${heroImageBase}&w=640 640w, ${heroImageBase}&w=960 960w, ${heroImageBase}&w=1280 1280w`}
+            sizes="(max-width: 768px) 100vw, 28rem"
+            alt="Atleta treinando com pesos"
+            className="absolute inset-0 h-full w-full object-cover"
+            fetchPriority="high"
+            decoding="async"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,4,4,0.15)_0%,rgba(4,4,4,0.38)_28%,rgba(4,4,4,0.7)_58%,rgba(4,4,4,0.96)_100%)]" />
+          <div className="absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top,rgba(255,102,0,0.16),transparent_62%)]" />
+          <div className="absolute bottom-0 left-0 right-0 h-40 bg-[radial-gradient(circle_at_bottom,rgba(255,102,0,0.2),transparent_56%)]" />
 
-      {/* Content */}
-      <div className="animate-fade-in flex flex-col items-center text-center z-10">
-        {/* Logo */}
-        <div className="mb-8">
-          <h1 className="text-5xl font-black text-foreground tracking-tight">
-            WE<span className="text-foreground/90">MOVELT</span>
-          </h1>
-          <div className="h-1 w-20 bg-foreground/50 mx-auto mt-2 rounded-full" />
-        </div>
+          <div className="relative z-10 flex min-h-[calc(100vh-3rem)] flex-col justify-between p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 backdrop-blur">
+                <div className="flex items-center gap-2">
+                  <div className="orange-glow flex h-8 w-8 items-center justify-center rounded-full wemovelt-gradient text-primary-foreground">
+                    <Dumbbell size={14} />
+                  </div>
+                  <div>
+                    <p className="text-[0.62rem] uppercase tracking-[0.26em] text-primary/90">Outdoor fitness</p>
+                    <p className="text-sm font-bold tracking-[-0.04em] text-white">WEMOVELT</p>
+                  </div>
+                </div>
+              </div>
 
-        {/* Tagline */}
-        <p className="text-xl text-foreground/90 font-medium mb-4 animate-slide-up">
-          Liberdade para treinar,
-        </p>
-        <p className="text-xl text-foreground/90 font-medium mb-12 animate-slide-up">
-          força para viver
-        </p>
+              <button
+                type="button"
+                onClick={() => handleAuth("login")}
+                className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm text-white backdrop-blur transition-colors hover:bg-black/45"
+              >
+                Pular
+              </button>
+            </div>
 
-        {/* Decorative icon */}
-        <div className="mb-12 animate-bounce-in">
-          <div className="w-20 h-20 rounded-full bg-foreground/20 flex items-center justify-center">
-            <svg 
-              viewBox="0 0 24 24" 
-              className="w-10 h-10 text-foreground"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M6 4v6a6 6 0 0 0 12 0V4" />
-              <line x1="4" y1="12" x2="4" y2="20" />
-              <line x1="20" y1="12" x2="20" y2="20" />
-              <line x1="4" y1="20" x2="10" y2="20" />
-              <line x1="14" y1="20" x2="20" y2="20" />
-            </svg>
+            <div className="space-y-5">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-8 rounded-full bg-primary" />
+                <span className="h-1.5 w-2 rounded-full bg-white/70" />
+                <span className="h-1.5 w-2 rounded-full bg-white/35" />
+              </div>
+
+              <div className="max-w-[16rem] space-y-3">
+                <p className="app-kicker text-primary">Seu ritmo comeca aqui</p>
+                <h1 className="text-[3rem] font-bold leading-[0.92] tracking-[-0.08em] text-white">
+                  Treine forte.
+                  <span className="block text-primary">Viva em movimento.</span>
+                </h1>
+                <p className="text-sm leading-6 text-white/78">
+                  Voce ainda tem energia para mudar o dia de hoje. Entre, registre seus treinos e mantenha a constancia.
+                </p>
+              </div>
+
+              <div className="flex items-end justify-between gap-3">
+                <div className="rounded-[1.6rem] border border-white/10 bg-black/35 p-4 backdrop-blur-md">
+                  <p className="text-[0.7rem] uppercase tracking-[0.18em] text-white/60">Frase do dia</p>
+                  <p className="mt-2 max-w-[11rem] text-2xl font-bold tracking-[-0.06em] text-white">
+                    Seu proximo treino muda seu proximo passo.
+                  </p>
+                </div>
+                <div className="orange-glow flex h-14 w-14 items-center justify-center rounded-full wemovelt-gradient text-primary-foreground">
+                  <Play size={18} className="ml-0.5" />
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-white/10 bg-black/55 p-4 backdrop-blur-xl">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[0.7rem] uppercase tracking-[0.22em] text-primary/90">Comece agora</p>
+                    <p className="mt-1 text-sm text-white/70">Fluxo rapido para entrar ou criar sua conta.</p>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/14 text-primary">
+                    <Sparkles size={18} />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Button onClick={() => handleAuth("login")} className="h-14 w-full justify-between px-5 text-base">
+                    Entrar agora
+                    <ArrowRight size={18} />
+                  </Button>
+
+                  <Button
+                    onClick={() => handleAuth("register")}
+                    variant="outline"
+                    className="h-14 w-full border-white/12 bg-white/[0.02] text-base text-white hover:bg-white/[0.06]"
+                  >
+                    Criar conta
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="space-y-4 w-full max-w-xs animate-slide-up">
-          <Button
-            onClick={() => handleAuth("login")}
-            className="w-full h-14 text-lg font-bold bg-foreground text-wemovelt-orange hover:bg-foreground/90 rounded-2xl shadow-lg"
-          >
-            LOGIN
-          </Button>
-          
-          <Button
-            onClick={() => handleAuth("register")}
-            variant="outline"
-            className="w-full h-14 text-lg font-bold bg-transparent border-2 border-foreground text-foreground hover:bg-foreground/10 rounded-2xl"
-          >
-            CADASTRE-SE
-          </Button>
-        </div>
+        </section>
       </div>
 
-      <AuthModal 
-        open={authModalOpen} 
-        onOpenChange={setAuthModalOpen}
-        mode={authMode}
-        onSuccess={handleAuthSuccess}
-      />
+      <Suspense fallback={null}>
+        {authModalOpen && (
+          <AuthModal
+            open={authModalOpen}
+            onOpenChange={setAuthModalOpen}
+            mode={authMode}
+            onSuccess={handleAuthSuccess}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };

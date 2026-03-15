@@ -1,12 +1,13 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { postContentSchema, imageFileSchema, validateOrThrow } from "@/lib/validations";
 import { sanitizeText } from "@/lib/sanitize";
 
 const PAGE_SIZE = 10;
-const STALE_TIME = 1000 * 30; // 30 seconds for social content
+const STALE_TIME = 1000 * 30;
 
 export interface PostProfile {
   id: string;
@@ -28,15 +29,42 @@ export interface Post {
   user_has_liked?: boolean;
 }
 
-// Fetch public profile for a user (uses secure view with only public fields)
+type FeedPostRow = Database["public"]["Functions"]["get_posts_feed"]["Returns"][number];
+
 const fetchProfileForUser = async (userId: string): Promise<PostProfile | null> => {
   const { data, error } = await supabase
     .from("profiles_public" as any)
     .select("id, name, username, avatar_url")
     .eq("id", userId)
     .single();
+
   if (error || !data) return null;
   return data as unknown as PostProfile;
+};
+
+const normalizePost = (post: FeedPostRow): Post => {
+  const createdAt = post.created_at ?? new Date().toISOString();
+  const updatedAt = post.updated_at ?? createdAt;
+
+  return {
+    id: post.id,
+    user_id: post.user_id,
+    content: post.content,
+    image_url: post.image_url,
+    likes_count: post.likes_count,
+    comments_count: post.comments_count,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    profiles: post.profile_id
+      ? {
+          id: post.profile_id,
+          name: post.profile_name ?? "Usuario",
+          username: post.profile_username,
+          avatar_url: post.profile_avatar_url,
+        }
+      : null,
+    user_has_liked: post.user_has_liked,
+  };
 };
 
 export const usePosts = () => {
@@ -44,7 +72,6 @@ export const usePosts = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch posts with pagination
   const {
     data,
     fetchNextPage,
@@ -53,63 +80,25 @@ export const usePosts = () => {
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ["posts"],
+    queryKey: ["posts", user?.id ?? "anon"],
     queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      // Fetch posts
-      const { data: posts, error } = await supabase
-        .from("posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .range(from, to);
+      const { data: posts, error } = await supabase.rpc("get_posts_feed", {
+        p_limit: PAGE_SIZE,
+        p_offset: pageParam * PAGE_SIZE,
+      });
 
       if (error) throw error;
-      if (!posts || posts.length === 0) return [];
-
-      // Get unique user IDs
-      const userIds = [...new Set(posts.map((p) => p.user_id))];
-      
-      // Fetch public profiles for all users (uses secure view)
-      const { data: profilesData } = await supabase
-        .from("profiles_public" as any)
-        .select("id, name, username, avatar_url")
-        .in("id", userIds);
-
-      const profiles = (profilesData || []) as unknown as PostProfile[];
-      const profilesMap = new Map(profiles.map((p) => [p.id, p]));
-
-      // If user is logged in, check which posts they've liked
-      let likedPostIds = new Set<string>();
-      if (user) {
-        const postIds = posts.map((p) => p.id);
-        const { data: userLikes } = await supabase
-          .from("post_likes")
-          .select("post_id")
-          .eq("user_id", user.id)
-          .in("post_id", postIds);
-
-        likedPostIds = new Set(userLikes?.map((l) => l.post_id) || []);
-      }
-
-      return posts.map((post) => ({
-        ...post,
-        profiles: profilesMap.get(post.user_id) || null,
-        user_has_liked: likedPostIds.has(post.id),
-      })) as Post[];
+      return (posts ?? []).map(normalizePost);
     },
     getNextPageParam: (lastPage, pages) => {
-      return lastPage && lastPage.length === PAGE_SIZE ? pages.length : undefined;
+      return lastPage.length === PAGE_SIZE ? pages.length : undefined;
     },
     initialPageParam: 0,
     staleTime: STALE_TIME,
   });
 
-  // Flatten pages into single array
-  const posts = data?.pages.flat() || [];
+  const posts = data?.pages.flat() ?? [];
 
-  // Upload image to storage
   const uploadImage = async (file: File): Promise<string | null> => {
     if (!user) return null;
 
@@ -117,32 +106,20 @@ export const usePosts = () => {
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${user.id}/${fileName}`;
 
-    const { error } = await supabase.storage
-      .from("post-images")
-      .upload(filePath, file);
+    const { error } = await supabase.storage.from("post-images").upload(filePath, file);
+    if (error) throw error;
 
-    if (error) {
-      console.error("Error uploading image:", error);
-      throw error;
-    }
-
-    const { data } = supabase.storage
-      .from("post-images")
-      .getPublicUrl(filePath);
-
+    const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
     return data.publicUrl;
   };
 
-  // Create post mutation
   const createPostMutation = useMutation({
     mutationFn: async ({ content, imageFile }: { content: string; imageFile?: File | null }) => {
-      if (!user) throw new Error("Usuário não autenticado");
+      if (!user) throw new Error("Usuario nao autenticado");
 
-      // Validate and sanitize content
       const sanitizedContent = sanitizeText(content);
       validateOrThrow(postContentSchema, sanitizedContent);
 
-      // Validate image if present
       if (imageFile) {
         validateOrThrow(imageFileSchema, {
           size: imageFile.size,
@@ -167,15 +144,20 @@ export const usePosts = () => {
 
       if (error) throw error;
 
-      // Fetch the profile for this post
       const profile = await fetchProfileForUser(user.id);
-      
-      return { ...data, profiles: profile } as Post;
+
+      return {
+        ...data,
+        created_at: data.created_at ?? new Date().toISOString(),
+        updated_at: data.updated_at ?? data.created_at ?? new Date().toISOString(),
+        profiles: profile,
+        user_has_liked: false,
+      } as Post;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       toast({
-        title: "Post publicado! 🎉",
+        title: "Post publicado!",
         description: "Seu post foi compartilhado com a comunidade.",
       });
     },
@@ -183,16 +165,15 @@ export const usePosts = () => {
       console.error("Error creating post:", error);
       toast({
         title: "Erro ao publicar",
-        description: "Não foi possível criar o post. Tente novamente.",
+        description: "Nao foi possivel criar o post. Tente novamente.",
         variant: "destructive",
       });
     },
   });
 
-  // Delete post mutation
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
-      if (!user) throw new Error("Usuário não autenticado");
+      if (!user) throw new Error("Usuario nao autenticado");
 
       const { error } = await supabase
         .from("posts")
@@ -205,7 +186,7 @@ export const usePosts = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       toast({
-        title: "Post excluído",
+        title: "Post excluido",
         description: "O post foi removido.",
       });
     },
@@ -213,18 +194,16 @@ export const usePosts = () => {
       console.error("Error deleting post:", error);
       toast({
         title: "Erro ao excluir",
-        description: "Não foi possível excluir o post.",
+        description: "Nao foi possivel excluir o post.",
         variant: "destructive",
       });
     },
   });
 
-  // Toggle like mutation
   const toggleLikeMutation = useMutation({
     mutationFn: async (postId: string) => {
-      if (!user) throw new Error("Usuário não autenticado");
+      if (!user) throw new Error("Usuario nao autenticado");
 
-      // Check if user already liked
       const { data: existing } = await supabase
         .from("post_likes")
         .select("id")
@@ -233,27 +212,20 @@ export const usePosts = () => {
         .single();
 
       if (existing) {
-        // Remove like
-        const { error } = await supabase
-          .from("post_likes")
-          .delete()
-          .eq("id", existing.id);
+        const { error } = await supabase.from("post_likes").delete().eq("id", existing.id);
         if (error) throw error;
-        return { action: "unliked" };
-      } else {
-        // Add like
-        const { error } = await supabase
-          .from("post_likes")
-          .insert({ post_id: postId, user_id: user.id });
-        if (error) throw error;
-        return { action: "liked" };
+        return { action: "unliked" as const };
       }
+
+      const { error } = await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
+      if (error) throw error;
+      return { action: "liked" as const };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       if (result.action === "liked") {
         toast({
-          title: "Curtiu! ❤️",
+          title: "Curtido",
           duration: 1500,
         });
       }

@@ -18,72 +18,91 @@ const Header = () => {
   const handleInstallClick = async () => {
     if (canInstall) {
       await promptInstall();
-    } else if (isIOS) {
+      return;
+    }
+
+    if (isIOS) {
       setInstallModalOpen(true);
     }
   };
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-40">
-        <div className="flex items-center justify-between h-14 px-4 max-w-md mx-auto pt-[env(safe-area-inset-top)]">
-          <button 
-            onClick={() => setMenuOpen(true)}
-            className="p-2 touch-target hover:bg-secondary rounded-lg transition-colors"
-          >
-            <Menu size={24} />
-          </button>
-          
-          <h1 className="text-xl font-bold wemovelt-gradient-text">WEMOVELT</h1>
-          
-          <div className="flex items-center gap-1">
-            {showInstallButton && (
-              <button
-                onClick={handleInstallClick}
-                className="p-2 touch-target hover:bg-secondary rounded-lg transition-colors animate-pulse"
-                aria-label="Instalar app"
-              >
-                <Download size={22} className="text-primary" />
-              </button>
-            )}
-            <button 
-              onClick={() => setNotificationsOpen(true)}
-              className="p-2 touch-target hover:bg-secondary rounded-lg transition-colors relative"
+      <header className="fixed inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)]">
+        <div className="app-screen pt-3">
+          <div className="app-panel flex items-center justify-between rounded-[1.75rem] px-3 py-2.5">
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="app-icon-button flex h-11 w-11 items-center justify-center"
+              aria-label="Abrir menu"
             >
-              <Bell size={22} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center px-1">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
+              <Menu size={20} />
             </button>
+
+            <div className="flex items-center gap-4">
+              <div className="orange-glow flex h-10 w-10 items-center justify-center rounded-2xl wemovelt-gradient text-[0.8rem] font-bold text-primary-foreground">
+                WM
+              </div>
+              <div className="flex flex-col justify-center">
+                <p className="mb-1 text-[0.64rem] uppercase tracking-[0.32em] text-primary/80">
+                  Outdoor fitness
+                </p>
+                <h1 className="text-[1.02rem] font-bold leading-none tracking-[-0.05em] text-foreground">
+                  WEMOVELT
+                </h1>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {showInstallButton && (
+                <button
+                  onClick={handleInstallClick}
+                  className="app-icon-button flex h-11 w-11 items-center justify-center"
+                  aria-label="Instalar app"
+                >
+                  <Download size={18} className="text-primary" />
+                </button>
+              )}
+
+              <button
+                onClick={() => setNotificationsOpen(true)}
+                className="app-icon-button relative flex h-11 w-11 items-center justify-center"
+                aria-label="Abrir notificacoes"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="orange-glow absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>
-      
+
       <MenuDrawer open={menuOpen} onOpenChange={setMenuOpen} />
       <NotificationsModal open={notificationsOpen} onOpenChange={setNotificationsOpen} />
 
-      {/* iOS Install Instructions Modal */}
       <Dialog open={installModalOpen} onOpenChange={setInstallModalOpen}>
-        <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="app-panel max-w-sm rounded-[1.75rem] border-white/10 bg-card/95 p-0">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-center flex items-center justify-center gap-2">
+            <DialogTitle className="flex items-center justify-center gap-2 px-6 pt-6 text-center text-lg font-bold">
               <Smartphone className="text-primary" size={22} />
               Instalar WEMOVELT
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 mt-2">
-            <p className="text-sm text-muted-foreground text-center">
+          <div className="space-y-3 px-6 pb-6 pt-2">
+            <p className="text-center text-sm text-muted-foreground">
               Para instalar no seu iPhone:
             </p>
-            <ol className="text-sm space-y-2 list-decimal list-inside text-muted-foreground">
-              <li>Toque no ícone de <strong className="text-foreground">Compartilhar</strong> (seta para cima)</li>
-              <li>Role e toque em <strong className="text-foreground">"Adicionar à Tela de Início"</strong></li>
-              <li>Toque em <strong className="text-foreground">"Adicionar"</strong></li>
+            <ol className="space-y-2 rounded-[1.35rem] border border-white/6 bg-white/[0.03] p-4 text-sm text-muted-foreground">
+              <li>1. Toque no icone de compartilhar.</li>
+              <li>2. Escolha "Adicionar a Tela de Inicio".</li>
+              <li>3. Confirme em "Adicionar".</li>
             </ol>
-            <p className="text-xs text-center text-muted-foreground">
-              O app será adicionado à sua tela inicial como um ícone
+            <p className="text-center text-xs text-muted-foreground">
+              O app sera adicionado a sua tela inicial como um atalho nativo.
             </p>
           </div>
         </DialogContent>

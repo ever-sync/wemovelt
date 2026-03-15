@@ -1,8 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { HelpCircle, MessageCircle, Download, Smartphone, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, Download, HelpCircle, MessageCircle, QrCode, Smartphone } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import { Badge } from "@/components/ui/badge";
+import { openWhatsApp } from "@/lib/native";
 
 interface HelpModalProps {
   open: boolean;
@@ -11,28 +12,24 @@ interface HelpModalProps {
 
 const faqs = [
   {
-    question: "Como faço check-in na academia?",
-    answer: "Você pode fazer check-in de duas formas: escaneando o QR Code disponível no local ou ativando a geolocalização do seu celular próximo à academia."
+    question: "Como fazer check-in?",
+    answer:
+      "Voce pode validar sua presenca por GPS, quando estiver dentro do raio da academia, ou por QR Code em equipamentos cadastrados.",
   },
   {
-    question: "Os treinos são personalizados?",
-    answer: "Sim! Ao criar seu perfil e definir seus objetivos, o app sugere treinos adequados ao seu nível e metas. Você também pode criar treinos personalizados."
+    question: "O QR Code funciona de verdade?",
+    answer:
+      "Sim. O app agora valida o codigo pelo backend. Se o equipamento estiver vinculado a uma academia, o check-in entra com integridade no Supabase.",
   },
   {
-    question: "Como usar os equipamentos públicos?",
-    answer: "Na seção de Treinos, você encontra vídeos demonstrativos de cada equipamento com instruções de uso, postura correta e dicas de segurança."
+    question: "Posso montar meu proprio treino?",
+    answer:
+      "Sim. Na area de treinos voce pode criar sua rotina, escolher exercicios e salvar a sequencia para repetir depois.",
   },
   {
-    question: "Posso treinar sem conexão com internet?",
-    answer: "Algumas funcionalidades básicas funcionam offline, mas recomendamos conexão para ter acesso completo aos vídeos e fazer check-in."
-  },
-  {
-    question: "Como acompanho minha frequência?",
-    answer: "Na aba 'Frequência', você visualiza seu histórico de treinos, dias consecutivos e metas alcançadas. Cada check-in é registrado automaticamente."
-  },
-  {
-    question: "Posso compartilhar meus treinos?",
-    answer: "Sim! Na seção Comunidade, você pode postar seus treinos, conquistas e interagir com outros usuários do WEMOVELT."
+    question: "Como acompanho frequencia e metas?",
+    answer:
+      "Na aba Frequencia voce encontra check-ins da semana, metas ativas e seu ritmo atual sem depender de consulta manual em varias telas.",
   },
 ];
 
@@ -40,101 +37,77 @@ const HelpModal = ({ open, onOpenChange }: HelpModalProps) => {
   const { canInstall, isInstalled, isIOS, promptInstall } = usePWAInstall();
 
   const handleWhatsAppPersonal = () => {
-    window.open("https://wa.me/5511952130972?text=Olá! Gostaria de falar com um personal do WEMOVELT", "_blank");
+    void openWhatsApp("Ola! Gostaria de falar com um personal do WEMOVELT");
   };
 
   const handleWhatsAppSupport = () => {
-    window.open("https://wa.me/5511952130972?text=Olá! Preciso de ajuda com o app WEMOVELT", "_blank");
-  };
-
-  const handleInstall = async () => {
-    await promptInstall();
+    void openWhatsApp("Ola! Preciso de ajuda com o app WEMOVELT");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl animate-scale-in max-h-[90vh] overflow-y-auto scrollbar-hide">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-center flex items-center justify-center gap-2">
-            <HelpCircle className="text-primary" size={24} />
-            Ajuda - FAQ
+      <DialogContent className="app-panel max-w-sm rounded-[1.9rem] border-white/10 bg-card/95 p-0 [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-full [&>button]:border [&>button]:border-white/10 [&>button]:bg-white/[0.05]">
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle className="flex items-center justify-center gap-2 text-center text-xl font-bold">
+            <HelpCircle className="text-primary" size={20} />
+            Ajuda e suporte
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          <Accordion type="single" collapsible className="w-full space-y-2">
+        <div className="space-y-4 px-6 pb-6">
+          <div className="rounded-[1.55rem] border border-primary/15 bg-primary/10 p-4">
+            <div className="mb-2 flex items-center gap-2 text-primary">
+              <QrCode size={18} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">Check-in seguro</span>
+            </div>
+            <p className="text-sm leading-6 text-foreground/82">
+              Validacao por GPS e QR Code agora roda com regra server-side. O cliente so dispara a tentativa.
+            </p>
+          </div>
+
+          <Accordion type="single" collapsible className="space-y-2">
             {faqs.map((faq, index) => (
-              <AccordionItem
-                key={index}
-                value={`item-${index}`}
-                className="bg-secondary rounded-xl border-none px-4"
-              >
-                <AccordionTrigger className="text-sm font-medium hover:no-underline py-4">
+              <AccordionItem key={faq.question} value={`faq-${index}`} className="app-panel-soft rounded-[1.35rem] border-none px-4">
+                <AccordionTrigger className="py-4 text-left text-sm font-semibold hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground text-sm pb-4">
-                  {faq.answer}
-                </AccordionContent>
+                <AccordionContent className="pb-4 text-sm text-muted-foreground">{faq.answer}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
 
-          {/* PWA Install Section */}
-          <div className="space-y-2">
-            {isInstalled ? (
-              <div className="flex items-center justify-center gap-2 py-3 px-4 bg-secondary rounded-xl">
-                <Check className="text-green-500" size={20} />
-                <span className="text-sm font-medium text-muted-foreground">App instalado no seu dispositivo</span>
+          {isInstalled ? (
+            <div className="app-panel-soft flex items-center justify-center gap-2 rounded-[1.35rem] p-4 text-sm">
+              <Check className="text-primary" size={18} />
+              App instalado no dispositivo
+            </div>
+          ) : canInstall ? (
+            <Button onClick={() => void promptInstall()} className="w-full h-12 justify-center gap-2">
+              <Download size={18} />
+              Instalar no celular
+            </Button>
+          ) : isIOS ? (
+            <div className="app-panel-soft rounded-[1.35rem] p-4">
+              <div className="mb-2 flex items-center gap-2 text-primary">
+                <Smartphone size={18} />
+                <span className="text-sm font-semibold">Instalar no iPhone</span>
               </div>
-            ) : canInstall ? (
-              <button
-                onClick={handleInstall}
-                className="w-full flex items-center justify-center gap-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-xl transition-colors"
-              >
-                <Download size={24} />
-                Instalar no celular
-              </button>
-            ) : isIOS ? (
-              <div className="bg-secondary rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Smartphone size={20} className="text-primary" />
-                  Instalar no iPhone
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Toque em <strong>Compartilhar</strong> (ícone de seta) e depois em <strong>"Adicionar à Tela de Início"</strong>
-                </p>
-              </div>
-            ) : null}
-            
-            {(canInstall || isIOS) && !isInstalled && (
-              <p className="text-center text-xs text-muted-foreground">
-                Adicione o WEMOVELT à tela inicial do seu celular
+              <p className="text-sm text-muted-foreground">
+                Abra o menu compartilhar do Safari e toque em "Adicionar a Tela de Inicio".
               </p>
-            )}
-          </div>
+            </div>
+          ) : null}
 
-          {/* WhatsApp Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handleWhatsAppPersonal}
-              className="w-full flex items-center justify-center gap-3 wemovelt-gradient text-white font-bold py-4 rounded-xl transition-all hover:opacity-90"
-            >
-              <MessageCircle size={24} />
-              Chame nosso personal
-            </button>
-
-            <button
-              onClick={handleWhatsAppSupport}
-              className="w-full flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold py-4 rounded-xl transition-colors"
-            >
-              <MessageCircle size={24} />
+          <div className="grid grid-cols-1 gap-3">
+            <Button onClick={handleWhatsAppPersonal} className="w-full justify-center gap-2">
+              <MessageCircle size={18} />
+              Chamar personal
+            </Button>
+            <Button onClick={handleWhatsAppSupport} variant="secondary" className="w-full justify-center gap-2">
+              <MessageCircle size={18} />
               Falar com suporte
-            </button>
+            </Button>
           </div>
-
-          <p className="text-center text-xs text-muted-foreground">
-            Dúvidas sobre o app? Quer um treino personalizado? Estamos aqui!
-          </p>
         </div>
       </DialogContent>
     </Dialog>

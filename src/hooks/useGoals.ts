@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { startOfWeek, endOfWeek, format } from "date-fns";
 import { toast } from "sonner";
 import { goalSchema, validateOrThrow } from "@/lib/validations";
 
@@ -28,72 +27,21 @@ export const useGoals = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: goals = [], isLoading } = useQuery({
-    queryKey: ["goals", user?.id],
+  const { data: goalsWithProgress = [], isLoading } = useQuery({
+    queryKey: ["goals-with-progress", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from("user_goals")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-      
+
+      const { data, error } = await supabase.rpc("get_active_goals_with_progress");
+
       if (error) throw error;
-      return data as Goal[];
+      return (data ?? []) as GoalWithProgress[];
     },
     enabled: !!user,
     staleTime: STALE_TIME,
   });
 
-  const { data: goalsWithProgress = [] } = useQuery({
-    queryKey: ["goals-with-progress", user?.id, goals],
-    queryFn: async () => {
-      if (!user || goals.length === 0) return [];
-      
-      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-      
-      const goalsProgress: GoalWithProgress[] = await Promise.all(
-        goals.map(async (goal) => {
-          let current = 0;
-          
-          if (goal.type === "workout") {
-            // Count check-ins for the week
-            const { count } = await supabase
-              .from("check_ins")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", user.id)
-              .gte("created_at", weekStart.toISOString())
-              .lte("created_at", weekEnd.toISOString());
-            
-            current = count || 0;
-          } else {
-            // Count completed habit logs for the week
-            const { data: logs } = await supabase
-              .from("habit_logs")
-              .select("*")
-              .eq("user_id", user.id)
-              .eq("habit_type", goal.type)
-              .eq("completed", true)
-              .gte("date", format(weekStart, "yyyy-MM-dd"))
-              .lte("date", format(weekEnd, "yyyy-MM-dd"));
-            
-            current = logs?.length || 0;
-          }
-          
-          const percentage = Math.min(Math.round((current / goal.target) * 100), 100);
-          
-          return { ...goal, current, percentage };
-        })
-      );
-      
-      return goalsProgress;
-    },
-    enabled: !!user && goals.length > 0,
-    staleTime: STALE_TIME,
-  });
+  const goals = goalsWithProgress.map(({ current, percentage, ...goal }) => goal);
 
   const createGoalMutation = useMutation({
     mutationFn: async (goalData: {
@@ -120,7 +68,7 @@ export const useGoals = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["goals-with-progress"] });
       toast.success("Meta criada com sucesso!");
     },
     onError: () => {
@@ -141,7 +89,7 @@ export const useGoals = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["goals-with-progress"] });
     },
   });
 
@@ -156,7 +104,7 @@ export const useGoals = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["goals-with-progress"] });
       toast.success("Meta removida");
     },
   });

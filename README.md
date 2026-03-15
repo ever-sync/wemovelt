@@ -71,3 +71,41 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Mobile builds
+
+This project is configured with Capacitor and already includes native projects for Android and iOS.
+
+Commands:
+
+```sh
+npm install
+npm run build
+npm run cap:sync
+```
+
+Platform-specific sync:
+
+```sh
+npm run cap:android
+npm run cap:ios
+```
+
+Regenerate native icons and splash screens:
+
+```sh
+npm run assets:mobile
+```
+
+Open the native projects:
+
+```sh
+npx cap open android
+npx cap open ios
+```
+
+Notes:
+
+- Android builds require Android Studio
+- iOS builds and App Store submission require macOS with Xcode
+- Update the `appId` in `capacitor.config.ts` before publishing to the stores so it matches your final bundle identifier

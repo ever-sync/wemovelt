@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthRedirectUrl } from "@/lib/native";
 
 interface Profile {
   id: string;
@@ -42,41 +43,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .select("*")
       .eq("id", userId)
       .single();
-    
+
     if (!error && data) {
       setProfile(data);
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile fetch with setTimeout to avoid deadlocks
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-        
-        setLoading(false);
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
+      if (nextSession?.user) {
+        setTimeout(() => {
+          void fetchProfile(nextSession.user.id);
+        }, 0);
+      } else {
+        setProfile(null);
       }
-      
+
+      setLoading(false);
+    });
+
+    void supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+
+      if (nextSession?.user) {
+        void fetchProfile(nextSession.user.id);
+      }
+
       setLoading(false);
     });
 
@@ -84,19 +82,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
+        emailRedirectTo: getAuthRedirectUrl(),
         data: {
           name,
         },
       },
     });
-    
+
     return { error: error as Error | null };
   };
 
@@ -105,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       password,
     });
-    
+
     return { error: error as Error | null };
   };
 
@@ -118,24 +114,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: getAuthRedirectUrl(),
     });
-    
+
     return { error: error as Error | null };
   };
 
   const updateProfile = async (data: Partial<Profile>) => {
-    if (!user) return { error: new Error("Usuário não autenticado") };
-    
+    if (!user) {
+      return { error: new Error("Usuario nao autenticado") };
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update(data)
       .eq("id", user.id);
-    
+
     if (!error) {
-      setProfile((prev) => prev ? { ...prev, ...data } : null);
+      setProfile((prev) => (prev ? { ...prev, ...data } : null));
     }
-    
+
     return { error: error as Error | null };
   };
 
@@ -145,10 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Check if user needs onboarding (profile exists but goal/experience not set)
-  const needsOnboarding = Boolean(
-    profile && !profile.goal && !profile.experience_level
-  );
+  const needsOnboarding = Boolean(profile && !profile.goal && !profile.experience_level);
 
   return (
     <AuthContext.Provider
@@ -173,8 +168,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
+
   return context;
 };

@@ -27,16 +27,18 @@ export const useWorkouts = () => {
     queryKey: ["workouts", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
       const { data, error } = await supabase
         .from("workouts")
-        .select(`
+        .select(
+          `
           *,
           workout_exercises (*)
-        `)
+        `,
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data as WorkoutWithExercises[];
     },
@@ -45,37 +47,19 @@ export const useWorkouts = () => {
 
   const createWorkoutMutation = useMutation({
     mutationFn: async (input: CreateWorkoutInput) => {
-      if (!user) throw new Error("Usuário não autenticado");
-      
+      if (!user) throw new Error("Usuario nao autenticado");
+
       const { exercises, ...workoutData } = input;
-      
-      // Create workout
-      const { data: workout, error: workoutError } = await supabase
-        .from("workouts")
-        .insert({
-          ...workoutData,
-          user_id: user.id,
-        })
-        .select()
-        .single();
-      
-      if (workoutError) throw workoutError;
-      
-      // Create exercises if provided
-      if (exercises && exercises.length > 0) {
-        const exercisesWithWorkoutId = exercises.map((ex, index) => ({
-          ...ex,
-          workout_id: workout.id,
-          order_index: index,
-        }));
-        
-        const { error: exercisesError } = await supabase
-          .from("workout_exercises")
-          .insert(exercisesWithWorkoutId);
-        
-        if (exercisesError) throw exercisesError;
-      }
-      
+      const { data: workout, error } = await supabase.rpc("create_workout_with_exercises", {
+        p_name: workoutData.name,
+        p_description: workoutData.description ?? null,
+        p_objective: workoutData.objective ?? null,
+        p_frequency: workoutData.frequency ?? null,
+        p_difficulty: workoutData.difficulty ?? null,
+        p_exercises: (exercises ?? []) as unknown as Record<string, unknown>[],
+      });
+
+      if (error) throw error;
       return workout;
     },
     onSuccess: () => {
@@ -85,11 +69,7 @@ export const useWorkouts = () => {
 
   const updateWorkoutMutation = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Workout> & { id: string }) => {
-      const { error } = await supabase
-        .from("workouts")
-        .update(data)
-        .eq("id", id);
-      
+      const { error } = await supabase.from("workouts").update(data).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -99,11 +79,7 @@ export const useWorkouts = () => {
 
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("workouts")
-        .delete()
-        .eq("id", id);
-      
+      const { error } = await supabase.from("workouts").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -7,45 +7,45 @@
 @layer base {
   :root {
     /* WEMOVELT Brand Colors */
-    --wemovelt-orange: 28 93% 54%;
-    --wemovelt-red: 0 70% 50%;
-    --wemovelt-dark: 220 13% 18%;
-    --wemovelt-card: 220 13% 22%;
-    --wemovelt-card-light: 220 10% 28%;
+    --wemovelt-orange: 24 100% 50%;
+    --wemovelt-orange-soft: 30 100% 58%;
+    --wemovelt-dark: 0 0% 4%;
+    --wemovelt-card: 0 0% 8%;
+    --wemovelt-card-light: 0 0% 11%;
     
     /* Core colors */
-    --background: 220 13% 12%;
-    --foreground: 0 0% 100%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
 
-    --card: 220 13% 18%;
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 220 13% 18%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 28 93% 54%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 24 100% 50%;
+    --primary-foreground: 0 0% 6%;
 
-    --secondary: 220 13% 22%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 220 10% 28%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 64%;
 
-    --accent: 0 70% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 28%;
-    --input: 220 13% 22%;
-    --ring: 28 93% 54%;
+    --border: 0 0% 16%;
+    --input: 0 0% 10%;
+    --ring: 24 100% 50%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
 
     /* Success color */
-    --success: 142 76% 36%;
+    --success: 142 69% 45%;
     --success-foreground: 0 0% 100%;
   }
 }
@@ -57,21 +57,106 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top, rgba(255, 102, 0, 0.16), transparent 26%),
+      radial-gradient(circle at 100% 12%, rgba(255, 102, 0, 0.12), transparent 18%),
+      linear-gradient(180deg, rgba(20, 20, 20, 1) 0%, rgba(8, 8, 8, 1) 42%, rgba(3, 3, 3, 1) 100%);
+    min-height: 100vh;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: rgba(255, 102, 0, 0.32);
+    color: hsl(var(--foreground));
   }
 }
 
 @layer utilities {
   /* WEMOVELT Gradient */
   .wemovelt-gradient {
-    background: linear-gradient(135deg, hsl(var(--wemovelt-orange)) 0%, hsl(var(--wemovelt-red)) 100%);
+    background: linear-gradient(135deg, hsl(var(--wemovelt-orange)) 0%, hsl(var(--wemovelt-orange-soft)) 100%);
   }
 
   .wemovelt-gradient-text {
-    background: linear-gradient(135deg, hsl(var(--wemovelt-orange)) 0%, hsl(var(--wemovelt-red)) 100%);
+    background: linear-gradient(135deg, hsl(var(--wemovelt-orange)) 0%, hsl(var(--wemovelt-orange-soft)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    position: relative;
+    overflow-x: clip;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255, 102, 0, 0.15), transparent 0 22rem),
+      radial-gradient(circle at 100% 0%, rgba(255, 102, 0, 0.08), transparent 0 18rem),
+      linear-gradient(180deg, rgba(11, 11, 11, 1) 0%, rgba(5, 5, 5, 1) 52%, rgba(2, 2, 2, 1) 100%);
+  }
+
+  .app-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 88%);
+  }
+
+  .app-screen {
+    width: min(100%, 28rem);
+    margin-inline: auto;
+    padding-inline: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .app-panel {
+    background:
+      linear-gradient(180deg, rgba(26, 26, 26, 0.96) 0%, rgba(12, 12, 12, 0.96) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(18px);
+  }
+
+  .app-panel-soft {
+    background: rgba(18, 18, 18, 0.86);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(16px);
+  }
+
+  .app-icon-button {
+    @apply rounded-full border border-white/10 bg-white/5 text-foreground/80 transition-all duration-200;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .app-icon-button:hover {
+    @apply border-primary/30 bg-primary/10 text-foreground;
+  }
+
+  .app-kicker {
+    @apply text-[0.7rem] uppercase tracking-[0.28em] text-primary/80;
+  }
+
+  .app-section-title {
+    @apply text-lg font-bold tracking-[-0.04em] text-foreground;
+  }
+
+  .app-hairline {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .orange-glow {
+    box-shadow:
+      0 12px 32px rgba(255, 102, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
   /* Animations */

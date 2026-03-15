@@ -1,17 +1,20 @@
 import { MessageCircle } from "lucide-react";
+import { openWhatsApp } from "@/lib/native";
 
 const WhatsAppFAB = () => {
   const handleClick = () => {
-    window.open("https://wa.me/5511952130972", "_blank");
+    void openWhatsApp("Ola! Gostaria de falar com um personal do WEMOVELT");
   };
 
   return (
     <button
       onClick={handleClick}
-      className="fixed bottom-[96px] right-4 z-50 flex items-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-bold px-3 py-2 rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+      className="fixed bottom-[6.35rem] right-4 z-50 flex items-center gap-2 rounded-full border border-white/10 bg-[#141414]/90 px-3.5 py-3 text-xs font-bold text-white shadow-[0_16px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-1 active:scale-95"
       aria-label="Chamar Personal no WhatsApp"
     >
-      <MessageCircle size={16} />
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#25D366] text-[#041b0b]">
+        <MessageCircle size={16} />
+      </span>
       <span>Chamar Personal</span>
     </button>
   );

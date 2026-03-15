@@ -20,12 +20,26 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           vendor: ["react", "react-dom", "react-router-dom"],
-          ui: ["@radix-ui/react-dialog", "@radix-ui/react-tabs", "@radix-ui/react-select"],
+          ui: [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-select",
+            "@radix-ui/react-accordion",
+            "@radix-ui/react-scroll-area",
+          ],
           charts: ["recharts"],
+          maps: ["leaflet", "@vis.gl/react-google-maps"],
+          scanner: ["@yudiel/react-qr-scanner"],
+          data: ["@supabase/supabase-js", "@tanstack/react-query", "date-fns"],
         },
       },
     },
     sourcemap: false,
     minify: "esbuild",
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./src/test/setup.ts",
   },
 }));
