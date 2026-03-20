@@ -16,8 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import BrandLockup from "@/components/brand/BrandLockup";
-import BrandMark from "@/components/brand/BrandMark";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ProfileModal from "./ProfileModal";
 import SettingsModal from "./SettingsModal";
 import HelpModal from "./HelpModal";
@@ -72,41 +71,31 @@ const MenuDrawer = ({ open, onOpenChange }: MenuDrawerProps) => {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="left"
-          className="h-[100dvh] w-[304px] max-w-[86vw] overflow-hidden rounded-r-[2rem] border-r-0 bg-[#0e0e0e] p-0 shadow-[0_30px_80px_rgba(0,0,0,0.52)] [&>button]:right-5 [&>button]:top-5 [&>button]:h-10 [&>button]:w-10 [&>button]:rounded-full [&>button]:border [&>button]:border-white/10 [&>button]:bg-black/10 [&>button]:text-white [&>button]:opacity-100 [&>button]:hover:bg-black/20"
+          className="h-[100dvh] w-[304px] max-w-[86vw] overflow-hidden rounded-r-[2rem] border-r-0 bg-[#0e0e0e] p-0 shadow-[0_30px_80px_rgba(0,0,0,0.52)] [&>button]:right-4 [&>button]:top-4 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:border [&>button]:border-white/10 [&>button]:bg-black/20 [&>button]:text-white [&>button]:opacity-100 [&>button]:hover:bg-black/30"
         >
           <div className="flex h-full flex-col">
-            <SheetHeader className="relative overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_top_right,rgba(255,102,0,0.22),transparent_40%),linear-gradient(180deg,#16110c,#0c0c0c_78%)] px-5 pb-5 pt-8">
+            <SheetHeader className="relative overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_top_right,rgba(255,102,0,0.22),transparent_40%),linear-gradient(180deg,#16110c,#0c0c0c_78%)] px-5 pb-5 pt-6">
               <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/15 blur-3xl" />
               <div className="absolute bottom-0 left-0 right-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.36))]" />
 
-              <div className="relative z-10 space-y-5 pr-10">
-                <BrandLockup
-                  compact
-                  iconClassName="h-9 w-9"
-                  kickerClassName="text-[0.58rem] text-primary/85"
-                  titleClassName="text-sm text-white"
-                />
+              <div className="relative z-10 flex items-center gap-4 pr-10">
+                <Avatar className="h-16 w-16 shrink-0 rounded-[1.4rem] border border-white/20 bg-white/10 backdrop-blur-xl">
+                  <AvatarImage
+                    src={profile?.avatar_url || undefined}
+                    alt={profile?.name ? `Foto de ${profile.name}` : "Foto do usuario"}
+                    className="rounded-[1.4rem] object-cover"
+                  />
+                  <AvatarFallback className="rounded-[1.4rem] bg-primary text-lg font-bold text-primary-foreground">
+                    {profile?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
 
-                <div className="flex items-center gap-4">
-                  {profile?.avatar_url ? (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/10 backdrop-blur-xl">
-                      <img
-                        src={profile.avatar_url}
-                        alt="Avatar"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <BrandMark className="h-16 w-16 shrink-0 rounded-[1.4rem] border-white/15 bg-black/25" imageClassName="h-11 w-11" />
-                  )}
-
-                  <div className="min-w-0">
-                    <p className="text-[0.68rem] uppercase tracking-[0.22em] text-white/70">Conta ativa</p>
-                    <SheetTitle className="mt-1 truncate text-xl font-bold tracking-[-0.05em] text-white">
-                      {profile?.name || "Usuario"}
-                    </SheetTitle>
-                    <p className="truncate text-sm text-white/78">{user?.email}</p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="text-[0.68rem] uppercase tracking-[0.22em] text-white/70">Conta ativa</p>
+                  <SheetTitle className="mt-1 truncate text-xl font-bold tracking-[-0.05em] text-white">
+                    {profile?.name || "Usuario"}
+                  </SheetTitle>
+                  <p className="truncate text-sm text-white/78">{user?.email}</p>
                 </div>
               </div>
             </SheetHeader>
