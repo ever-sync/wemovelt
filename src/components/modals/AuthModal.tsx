@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
@@ -214,8 +214,12 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
                 titleClassName="text-lg"
               />
 
-              <h2 className="max-w-[11ch] text-[2rem] font-bold leading-[1.02] tracking-[-0.07em]">{title}</h2>
-              <p className="mt-3 max-w-[28ch] text-sm leading-6 text-muted-foreground">{subtitle}</p>
+              <DialogTitle className="max-w-[11ch] text-[2rem] font-bold leading-[1.02] tracking-[-0.07em]">
+                {title}
+              </DialogTitle>
+              <DialogDescription className="mt-3 max-w-[28ch] text-sm leading-6 text-muted-foreground">
+                {subtitle}
+              </DialogDescription>
             </div>
 
             {!resetMode && (

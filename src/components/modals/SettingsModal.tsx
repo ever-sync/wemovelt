@@ -1,8 +1,10 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Bell, ChevronRight, FileText, Globe, Settings, Shield } from "lucide-react";
+import { Bell, ChevronRight, FileText, Globe, Loader2, Settings, Shield } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface SettingsModalProps {
   open: boolean;
@@ -11,13 +13,75 @@ interface SettingsModalProps {
 
 const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const {
+    isSupported,
+    isEnabled,
+    isLoading,
+    permission,
+    error,
+    enablePushNotifications,
+    disablePushNotifications,
+  } = usePushNotifications();
 
   const openLegalPage = (path: "/termos" | "/privacidade") => {
     onOpenChange(false);
     navigate(path);
   };
+
+  const handlePushToggle = async (checked: boolean) => {
+    try {
+      if (checked) {
+        await enablePushNotifications();
+        toast({
+          title: "Notificacoes ativadas",
+          description: "Voce vai receber alertas deste dispositivo.",
+          duration: 2500,
+        });
+        return;
+      }
+
+      await disablePushNotifications();
+      toast({
+        title: "Notificacoes desativadas",
+        description: "Este dispositivo nao recebera mais push.",
+        duration: 2500,
+      });
+    } catch (toggleError) {
+      toast({
+        title: "Nao foi possivel atualizar",
+        description:
+          toggleError instanceof Error ? toggleError.message : "Verifique a permissao do navegador e tente novamente.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
+  const pushStatusText = (() => {
+    if (!user) {
+      return "Entre na conta para salvar este dispositivo.";
+    }
+
+    if (!isSupported) {
+      return "Disponivel no app instalado via PWA.";
+    }
+
+    if (isLoading) {
+      return "Verificando suporte deste dispositivo.";
+    }
+
+    if (permission === "denied") {
+      return "Permissao negada no navegador. Reative nas configuracoes.";
+    }
+
+    if (isEnabled) {
+      return "Curtidas, comentarios e avisos chegaro aqui mesmo com o app fechado.";
+    }
+
+    return "Ative para receber alertas deste dispositivo.";
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -36,19 +100,27 @@ const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
               <span className="text-sm font-semibold uppercase tracking-[0.16em]">Notificacoes</span>
             </div>
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">Alertas no app</p>
-                  <p className="text-xs text-muted-foreground">Curtidas, comentarios e avisos operacionais.</p>
+              <div className="flex items-center justify-between gap-3 rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Push no dispositivo</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {isLoading && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
+                    <p className="text-xs text-muted-foreground">{pushStatusText}</p>
+                  </div>
                 </div>
-                <Switch checked={notifications} onCheckedChange={setNotifications} />
+                <Switch
+                  checked={isEnabled}
+                  onCheckedChange={(checked) => void handlePushToggle(checked)}
+                  disabled={!user || !isSupported || isLoading}
+                />
               </div>
+              {error && <p className="text-xs text-destructive">{error}</p>}
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium">E-mail</p>
                   <p className="text-xs text-muted-foreground">Reservado para releases futuras.</p>
                 </div>
-                <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} disabled />
+                <Switch checked={false} disabled />
               </div>
             </div>
           </section>

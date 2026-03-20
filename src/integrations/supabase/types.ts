@@ -223,6 +223,48 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string | null
+          device_label: string | null
+          endpoint: string
+          expiration_time: string | null
+          id: string
+          last_seen_at: string | null
+          p256dh: string
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string | null
+          device_label?: string | null
+          endpoint: string
+          expiration_time?: string | null
+          id?: string
+          last_seen_at?: string | null
+          p256dh: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string | null
+          device_label?: string | null
+          endpoint?: string
+          expiration_time?: string | null
+          id?: string
+          last_seen_at?: string | null
+          p256dh?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       post_comments: {
         Row: {
           content: string
@@ -796,3 +838,4 @@ export const Constants = {
     },
   },
 } as const
+

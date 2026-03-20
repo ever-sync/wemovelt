@@ -53,7 +53,7 @@ const Welcome = () => {
             src="/125729.jpg"
             alt="Atleta treinando com pesos"
             className="absolute inset-0 h-full w-full object-cover"
-            fetchPriority="high"
+            loading="eager"
             decoding="async"
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,4,4,0.15)_0%,rgba(4,4,4,0.38)_28%,rgba(4,4,4,0.7)_58%,rgba(4,4,4,0.96)_100%)]" />

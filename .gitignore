@@ -26,3 +26,4 @@ dist-ssr
 *.keystore
 *.p12
 android/keystore.properties
+supabase/.temp/

@@ -82,9 +82,7 @@ const Header = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 px-6 pb-6 pt-2">
-            <p className="text-center text-sm text-muted-foreground">
-              Para instalar no seu iPhone:
-            </p>
+            <p className="text-center text-sm text-muted-foreground">Para instalar no seu iPhone ou iPad:</p>
             <ol className="space-y-2 rounded-[1.35rem] border border-white/6 bg-white/[0.03] p-4 text-sm text-muted-foreground">
               <li>1. Toque no icone de compartilhar.</li>
               <li>2. Escolha "Adicionar a Tela de Inicio".</li>

@@ -2,13 +2,16 @@ import { lazy, Suspense, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthDeepLinkBridge from "./components/AuthDeepLinkBridge";
+import PWAStatus from "@/components/PWAStatus";
 
 const Welcome = lazy(() => import("./pages/Welcome"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -101,28 +104,43 @@ const App = () => {
         defaultOptions: {
           queries: {
             staleTime: 1000 * 60 * 5,
-            gcTime: 1000 * 60 * 30,
+            gcTime: 1000 * 60 * 60 * 24,
             refetchOnWindowFocus: false,
             retry: 1,
           },
         },
       }),
   );
+  const [persister] = useState(() =>
+    createSyncStoragePersister({
+      storage: window.localStorage,
+      key: "wemovelt-react-query-cache",
+      throttleTime: 1000,
+    }),
+  );
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister,
+          maxAge: 1000 * 60 * 60 * 24,
+          buster: "wemovelt-pwa-v1",
+        }}
+      >
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthProvider>
               <AuthDeepLinkBridge />
               <AppContent />
             </AuthProvider>
           </BrowserRouter>
+          <PWAStatus />
         </TooltipProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ErrorBoundary>
   );
 };

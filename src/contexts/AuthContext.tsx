@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthRedirectUrl } from "@/lib/native";
+import { clearBrowserPushSubscription } from "@/lib/push";
+import { deletePushSubscriptionByEndpoint } from "@/lib/pushSubscriptions";
 
 interface Profile {
   id: string;
@@ -106,6 +108,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    const currentUserId = user?.id ?? null;
+
+    if (currentUserId) {
+      try {
+        const endpoint = await clearBrowserPushSubscription();
+
+        if (endpoint) {
+          await deletePushSubscriptionByEndpoint(endpoint, currentUserId);
+        }
+      } catch (error) {
+        console.warn("Falha ao limpar push antes do logout:", error);
+      }
+    }
+
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

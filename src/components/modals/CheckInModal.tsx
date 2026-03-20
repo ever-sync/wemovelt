@@ -29,6 +29,7 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
 
   const { user } = useAuth();
   const { registerGeoCheckIn, registerQrCheckIn, streak, todayCheckedIn } = useCheckIn();
@@ -46,6 +47,19 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
       setScannerError(null);
     }
   }, [geo, open]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (step !== "locating" || !geo.position || gymsLoading || isSubmitting) return;
@@ -97,7 +111,7 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
   }, [geo.position, getNearestGym, gyms, gymsLoading]);
 
   const handleStartGeo = () => {
-    if (todayCheckedIn) return;
+    if (todayCheckedIn || !isOnline) return;
 
     setStep("locating");
     setErrorMessage("");
@@ -109,7 +123,7 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
 
   const handleQrSubmit = async (qrCode: string) => {
     const normalizedQr = qrCode.trim();
-    if (!normalizedQr || isSubmitting || todayCheckedIn) return;
+    if (!normalizedQr || isSubmitting || todayCheckedIn || !isOnline) return;
 
     try {
       setIsSubmitting(true);
@@ -201,10 +215,20 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
                 Escolha como deseja validar sua presenca na academia.
               </p>
 
+              {!isOnline && (
+                <div className="rounded-[1.45rem] border border-amber-500/20 bg-amber-500/10 p-4 text-center">
+                  <p className="text-sm font-semibold text-amber-300">Sem conexao</p>
+                  <p className="mt-1 text-xs text-amber-100/75">
+                    Check-in por GPS ou QR precisa de internet para registrar sua presenca.
+                  </p>
+                </div>
+              )}
+
               <div className="grid gap-3">
                 <button
                   onClick={handleStartGeo}
-                  className="orange-glow rounded-[1.5rem] p-[1px] text-left transition-transform duration-300 hover:-translate-y-1"
+                  disabled={!isOnline}
+                  className="orange-glow rounded-[1.5rem] p-[1px] text-left transition-transform duration-300 hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   <div className="flex items-center gap-4 rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(255,102,0,0.18),rgba(255,102,0,0.05))] px-4 py-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
@@ -221,7 +245,8 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
 
                 <button
                   onClick={() => setStep("qr")}
-                  className="app-panel-soft flex items-center gap-4 rounded-[1.5rem] px-4 py-4 text-left transition-transform duration-300 hover:-translate-y-1"
+                  disabled={!isOnline}
+                  className="app-panel-soft flex items-center gap-4 rounded-[1.5rem] px-4 py-4 text-left transition-transform duration-300 hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.05] text-primary">
                     <QrCode size={20} />
@@ -264,6 +289,14 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
               <p className="text-sm text-muted-foreground">
                 Posicione o QR Code dentro da moldura ou digite o codigo abaixo.
               </p>
+              {!isOnline && (
+                <div className="rounded-[1.45rem] border border-amber-500/20 bg-amber-500/10 p-4 text-center">
+                  <p className="text-sm font-semibold text-amber-300">Sem conexao</p>
+                  <p className="mt-1 text-xs text-amber-100/75">
+                    O scanner pode abrir a camera, mas o check-in nao sera enviado sem internet.
+                  </p>
+                </div>
+              )}
               <div className="overflow-hidden rounded-[1.6rem] border border-white/8 bg-black">
                 <Scanner
                   onScan={(codes) => {
@@ -278,7 +311,7 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
                   }}
                   scanDelay={900}
                   allowMultiple={false}
-                  paused={isSubmitting}
+                  paused={isSubmitting || !isOnline}
                   constraints={{ facingMode: "environment" }}
                   formats={["qr_code"]}
                   components={{ finder: true, onOff: true, torch: true }}
@@ -295,6 +328,7 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
                   value={manualQrCode}
                   onChange={(event) => setManualQrCode(event.target.value)}
                   placeholder="Digite o codigo do equipamento"
+                  disabled={!isOnline}
                   className="h-12 rounded-[1rem] border-white/10 bg-white/[0.04]"
                 />
                 <div className="flex gap-3">
@@ -303,7 +337,7 @@ const CheckInModal = ({ open, onOpenChange }: CheckInModalProps) => {
                   </Button>
                   <Button
                     onClick={() => void handleQrSubmit(manualQrCode)}
-                    disabled={!manualQrCode.trim() || isSubmitting}
+                    disabled={!manualQrCode.trim() || isSubmitting || !isOnline}
                     className="flex-1"
                   >
                     {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : "Validar"}

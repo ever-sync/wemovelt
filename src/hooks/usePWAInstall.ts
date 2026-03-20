@@ -6,6 +6,15 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+const isIOSDevice = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const { userAgent, platform, maxTouchPoints } = navigator;
+  return /iPad|iPhone|iPod/.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
+};
+
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -18,7 +27,9 @@ export function usePWAInstall() {
       return;
     }
 
-    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (typeof navigator !== "undefined" && (navigator as Navigator & { standalone?: boolean }).standalone === true);
     setIsInstalled(isStandalone);
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -55,7 +66,7 @@ export function usePWAInstall() {
     return outcome === "accepted";
   };
 
-  const isIOS = !nativeApp && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isIOS = !nativeApp && isIOSDevice();
 
   return {
     canInstall: !!deferredPrompt && !isInstalled,

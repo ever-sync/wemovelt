@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -9,7 +10,36 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      manifest: false,
+      injectRegister: null,
+      registerType: "prompt",
+      includeAssets: [
+        "favicon.svg",
+        "favicon.png",
+        "logo-mark.svg",
+        "logo-mark.png",
+        "logo-mark-1024.png",
+        "logo-lockup.svg",
+        "icon-180.png",
+        "icon-192.png",
+        "icon-512.png",
+        "og-image.png",
+        "placeholder.svg",
+        "125729.jpg",
+        "manifest.json",
+      ],
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}"],
+      },
+    }),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -110,6 +110,51 @@ Notes:
 - iOS builds and App Store submission require macOS with Xcode
 - Update the `appId` in `capacitor.config.ts` before publishing to the stores so it matches your final bundle identifier
 
+## Push notifications
+
+The PWA push flow now uses a browser subscription table plus a Supabase edge function.
+
+Required configuration:
+
+- `VITE_SUPABASE_URL` in the web app environment
+- `VITE_SUPABASE_PUBLISHABLE_KEY` in the web app environment
+- `VITE_VAPID_PUBLIC_KEY` in the web app environment
+- `SERVICE_ROLE_KEY` in the `push-notifications` edge function secrets
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` in the edge function secrets
+
+Generate a VAPID keypair with:
+
+```sh
+npm run push:vapid
+```
+
+Then place the values here:
+
+- `VITE_SUPABASE_URL` -> frontend `.env`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` -> frontend `.env`
+- `VITE_VAPID_PUBLIC_KEY` -> frontend `.env`
+- `VAPID_PUBLIC_KEY` -> Supabase Edge Function secrets
+- `VAPID_PRIVATE_KEY` -> Supabase Edge Function secrets
+- `VAPID_SUBJECT` -> Supabase Edge Function secrets
+- `SERVICE_ROLE_KEY` -> Supabase Edge Function secrets
+
+Supabase does not allow secret names that start with `SUPABASE_` in that screen, so use `SERVICE_ROLE_KEY` instead of `SUPABASE_SERVICE_ROLE_KEY`.
+
+The database migration `supabase/migrations/20260320124000_push_notifications.sql` creates:
+
+- `public.push_subscriptions`
+- `public.system_settings`
+- the trigger that forwards each inserted notification to the edge function
+
+For local PWA testing, use:
+
+```sh
+npm run build
+npm run preview
+```
+
+The push UI is only active in the production PWA build, not in `npm run dev`.
+
 ## Google Play release
 
 This project already uses:
