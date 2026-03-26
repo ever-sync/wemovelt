@@ -45,6 +45,8 @@ const AppContent = () => {
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/termos" element={<Termos />} />
         <Route path="/exclusao-conta" element={<ExclusaoConta />} />
+        <Route path="/privacy-policy.html" element={<Privacidade />} />
+        <Route path="/account-deletion.html" element={<ExclusaoConta />} />
         <Route
           path="/home"
           element={
