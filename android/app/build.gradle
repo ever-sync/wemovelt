@@ -16,8 +16,8 @@ def releaseKeyAlias = keystoreProperties.getProperty("keyAlias") ?: System.geten
 def releaseKeyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("ANDROID_KEY_PASSWORD")
 def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
 
-def wemoveltVersionCode = (project.findProperty("wemoveltVersionCode") ?: System.getenv("WEMOVELT_VERSION_CODE") ?: "1").toInteger()
-def wemoveltVersionName = project.findProperty("wemoveltVersionName") ?: System.getenv("WEMOVELT_VERSION_NAME") ?: "1.0.0"
+def wemoveltVersionCode = (project.findProperty("wemoveltVersionCode") ?: System.getenv("WEMOVELT_VERSION_CODE") ?: "2").toInteger()
+def wemoveltVersionName = project.findProperty("wemoveltVersionName") ?: System.getenv("WEMOVELT_VERSION_NAME") ?: "1.0.1"
 
 android {
     namespace = "br.academias.wemovelt"

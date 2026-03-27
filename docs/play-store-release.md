@@ -43,14 +43,14 @@ You can also skip the file and provide the same values through environment varia
 
 Default values:
 
-- `versionCode = 1`
-- `versionName = 1.0.0`
+- `versionCode = 2`
+- `versionName = 1.0.1`
 
 Override when needed:
 
 ```powershell
-$env:WEMOVELT_VERSION_CODE="2"
-$env:WEMOVELT_VERSION_NAME="1.0.1"
+$env:WEMOVELT_VERSION_CODE="3"
+$env:WEMOVELT_VERSION_NAME="1.0.2"
 ```
 
 ## 4. Build the release bundle
