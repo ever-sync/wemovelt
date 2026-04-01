@@ -30,10 +30,11 @@ export interface Post {
 }
 
 type FeedPostRow = Database["public"]["Functions"]["get_posts_feed"]["Returns"][number];
+const PROFILES_PUBLIC_TABLE = "profiles_public" as unknown as "profiles";
 
 const fetchProfileForUser = async (userId: string): Promise<PostProfile | null> => {
   const { data, error } = await supabase
-    .from("profiles_public" as any)
+    .from(PROFILES_PUBLIC_TABLE)
     .select("id, name, username, avatar_url")
     .eq("id", userId)
     .single();

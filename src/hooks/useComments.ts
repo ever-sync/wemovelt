@@ -24,6 +24,8 @@ export interface Comment {
   profiles: CommentProfile | null;
 }
 
+const PROFILES_PUBLIC_TABLE = "profiles_public" as unknown as "profiles";
+
 export const useComments = (postId: string | null) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -54,7 +56,7 @@ export const useComments = (postId: string | null) => {
 
       // Fetch public profiles for all users (uses secure view)
       const { data: profilesData } = await supabase
-        .from("profiles_public" as any)
+        .from(PROFILES_PUBLIC_TABLE)
         .select("id, name, username, avatar_url")
         .in("id", userIds);
 
@@ -95,7 +97,7 @@ export const useComments = (postId: string | null) => {
 
       // Fetch public profile for this comment (uses secure view)
       const { data: profileData } = await supabase
-        .from("profiles_public" as any)
+        .from(PROFILES_PUBLIC_TABLE)
         .select("id, name, username, avatar_url")
         .eq("id", user.id)
         .single();

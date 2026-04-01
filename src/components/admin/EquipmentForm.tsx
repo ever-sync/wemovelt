@@ -147,7 +147,9 @@ const EquipmentForm = ({
       if (path) {
         await supabase.storage.from('equipment-images').remove([path]);
       }
-    } catch {}
+    } catch (error) {
+      console.warn("Erro ao remover imagem antiga do equipamento:", error);
+    }
   };
 
   const handleSubmit = async () => {
@@ -179,8 +181,9 @@ const EquipmentForm = ({
         ...(equipment?.id && { id: equipment.id }),
       };
       onSubmit(data);
-    } catch (error: any) {
-      alert('Erro ao fazer upload da imagem: ' + error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      alert("Erro ao fazer upload da imagem: " + message);
     } finally {
       setIsUploading(false);
     }
