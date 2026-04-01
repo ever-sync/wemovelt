@@ -12,6 +12,7 @@ import AdminRoute from "./components/AdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthDeepLinkBridge from "./components/AuthDeepLinkBridge";
 import PWAStatus from "@/components/PWAStatus";
+import HelpChatWidget from "@/components/HelpChatWidget";
 
 const Welcome = lazy(() => import("./pages/Welcome"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -139,6 +140,7 @@ const App = () => {
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthProvider>
               <AuthDeepLinkBridge />
+              <HelpChatWidget />
               <AppContent />
             </AuthProvider>
           </BrowserRouter>
