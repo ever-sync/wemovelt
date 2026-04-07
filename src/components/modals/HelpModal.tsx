@@ -3,7 +3,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Check, Download, HelpCircle, MessageCircle, QrCode, Smartphone } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import { openWhatsApp } from "@/lib/native";
 
 interface HelpModalProps {
   open: boolean;
@@ -35,14 +34,6 @@ const faqs = [
 
 const HelpModal = ({ open, onOpenChange }: HelpModalProps) => {
   const { canInstall, isInstalled, isIOS, promptInstall } = usePWAInstall();
-
-  const handleWhatsAppPersonal = () => {
-    void openWhatsApp("Ola! Gostaria de falar com um personal do WEMOVELT");
-  };
-
-  const handleWhatsAppSupport = () => {
-    void openWhatsApp("Ola! Preciso de ajuda com o app WEMOVELT");
-  };
 
   const handleOpenLiveChat = () => {
     onOpenChange(false);
@@ -110,14 +101,6 @@ const HelpModal = ({ open, onOpenChange }: HelpModalProps) => {
             <Button onClick={handleOpenLiveChat} className="w-full justify-center gap-2">
               <MessageCircle size={18} />
               Chat ao vivo
-            </Button>
-            <Button onClick={handleWhatsAppPersonal} className="w-full justify-center gap-2">
-              <MessageCircle size={18} />
-              Chamar personal
-            </Button>
-            <Button onClick={handleWhatsAppSupport} variant="secondary" className="w-full justify-center gap-2">
-              <MessageCircle size={18} />
-              Falar com suporte
             </Button>
           </div>
         </div>
