@@ -4,11 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import logger from "@/lib/logger";
 
 const CHAT_STYLE_ID = "n8n-chat-style";
-const CHAT_WEBHOOK_URL = import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL as string | undefined;
+const DEFAULT_CHAT_WEBHOOK_URL =
+  "https://temp-n8n-n8n-start.ecfojw.easypanel.host/webhook/61f4e12e-a7e7-43c4-843c-f2bddba4e58c/chat";
+const CHAT_WEBHOOK_URL = (import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL as string | undefined) ?? DEFAULT_CHAT_WEBHOOK_URL;
 const ALLOWED_PATHS = ["/home", "/treinos", "/habitos", "/frequencia", "/admin"];
 
 type ChatOptions = {
   webhookUrl: string;
+  sessionId: string;
   showWelcomeScreen: boolean;
   initialMessages: string[];
   i18n: {
@@ -125,13 +128,14 @@ const HelpChatWidget = () => {
         removeChatDom();
         const chatApi = createChat({
           webhookUrl: CHAT_WEBHOOK_URL,
+          sessionId: user.id,
           showWelcomeScreen: false,
           initialMessages: [
-            "Ola! Bem-vindo a wemovelt! 💪\nSou seu personal trainer de academia ao ar livre. Vamos montar seu treino?",
+            "Ola! Bem-vindo a wemovelt! :muscle:\nSou seu personal trainer de academia ao ar livre. Vamos montar seu treino?",
           ],
           i18n: {
             en: {
-              title: "wemovelt 🌿",
+              title: "wemovelt :herb:",
               subtitle: "Seu personal trainer ao ar livre",
               footer: "",
               getStarted: "Comecar treino",
