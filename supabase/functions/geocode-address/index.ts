@@ -6,6 +6,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+interface GeocodeResult {
+  lat: number;
+  lng: number;
+  formatted_address?: string;
+}
+
+const geocodeWithGoogle = async (address: string, apiKey: string): Promise<GeocodeResult | null> => {
+  const encodedAddress = encodeURIComponent(address);
+  const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}&region=br&language=pt-BR`;
+
+  const response = await fetch(geocodeUrl);
+  const data = await response.json();
+
+  if (data.status === 'OK' && data.results && data.results.length > 0) {
+    const location = data.results[0].geometry.location;
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      formatted_address: data.results[0].formatted_address,
+    };
+  }
+
+  return null;
+};
+
+const geocodeWithNominatim = async (address: string): Promise<GeocodeResult | null> => {
+  const encodedAddress = encodeURIComponent(address);
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&accept-language=pt-BR&q=${encodedAddress}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'wemovelt-geocoder/1.0',
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  if (!Array.isArray(data) || data.length === 0) return null;
+
+  const first = data[0];
+  const lat = parseFloat(first.lat);
+  const lng = parseFloat(first.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    lat,
+    lng,
+    formatted_address: first.display_name,
+  };
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -46,33 +99,19 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('VITE_GOOGLE_MAPS_API_KEY');
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'Geocoding service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY') ?? Deno.env.get('VITE_GOOGLE_MAPS_API_KEY');
+
+    let result: GeocodeResult | null = null;
+
+    if (apiKey) {
+      result = await geocodeWithGoogle(address, apiKey);
     }
 
-    const encodedAddress = encodeURIComponent(address);
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}&region=br&language=pt-BR`;
-
-    const response = await fetch(geocodeUrl);
-    const data = await response.json();
-
-    if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      return new Response(
-        JSON.stringify({ 
-          lat: location.lat, 
-          lng: location.lng,
-          formatted_address: data.results[0].formatted_address 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!result) {
+      result = await geocodeWithNominatim(address);
     }
 
-    if (data.status === 'ZERO_RESULTS') {
+    if (!result) {
       return new Response(
         JSON.stringify({ error: 'Endereço não encontrado. Verifique os dados.' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -80,8 +119,8 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: `Geocoding failed: ${data.status}` }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {

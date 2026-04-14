@@ -96,21 +96,24 @@ const GymForm = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fieldsHighlighted, setFieldsHighlighted] = useState(false);
 
-  const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+  const geocodeAddress = async (addresses: string[]): Promise<{ lat: number; lng: number } | null> => {
     setGeocodeStatus("loading");
     try {
-      const { data, error } = await supabase.functions.invoke("geocode-address", {
-        body: { address },
-      });
+      for (const address of addresses) {
+        const { data, error } = await supabase.functions.invoke("geocode-address", {
+          body: { address },
+        });
 
-      if (error || data?.error) {
-        logger.warn("Geocoding failed (non-blocking):", error || data?.error);
-        setGeocodeStatus("error");
-        return null;
+        if (error || data?.error) {
+          logger.warn("Geocoding attempt failed (non-blocking):", error || data?.error, address);
+          continue;
+        }
+
+        setGeocodeStatus("success");
+        return { lat: data.lat, lng: data.lng };
       }
-
-      setGeocodeStatus("success");
-      return { lat: data.lat, lng: data.lng };
+      setGeocodeStatus("error");
+      return null;
     } catch (err) {
       logger.warn("Geocoding exception (non-blocking):", err);
       setGeocodeStatus("error");
@@ -236,6 +239,12 @@ const GymForm = ({
         ? `${formData.street}, ${formData.number}`
         : formData.street;
       const fullAddress = `${streetPart} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, ${formData.cep}`;
+      const geocodeCandidates = [
+        `${streetPart}, ${formData.neighborhood}, ${formData.city}, ${formData.state}, Brasil, ${formData.cep}`.trim(),
+        `${streetPart}, ${formData.city}, ${formData.state}, Brasil`.trim(),
+        `CEP ${formData.cep}, Brasil`.trim(),
+        fullAddress,
+      ].filter((value, index, self) => value && self.indexOf(value) === index);
 
       // Use manual coordinates if provided, otherwise try geocoding
       const manualLat = formData.lat ? parseFloat(formData.lat) : null;
@@ -248,7 +257,7 @@ const GymForm = ({
 
       if (!coordinates) {
         try {
-          coordinates = await geocodeAddress(fullAddress);
+          coordinates = await geocodeAddress(geocodeCandidates);
         } catch {
           // Geocoding failed silently — coordinates remain null
         }

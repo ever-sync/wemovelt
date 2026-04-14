@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useEquipment, Equipment } from "@/hooks/useEquipment";
-import { Check, Search, Plus, X } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface SelectedExercise {
@@ -63,7 +62,7 @@ const ExerciseSelector = ({ selectedExercises, onSelect }: ExerciseSelectorProps
     return (
       <div className="space-y-3">
         <Skeleton className="h-10 w-full" />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {[1, 2, 3, 4].map(i => (
             <Skeleton key={i} className="h-20" />
           ))}
@@ -109,7 +108,7 @@ const ExerciseSelector = ({ selectedExercises, onSelect }: ExerciseSelectorProps
       </div>
 
       {/* Equipment Grid */}
-      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto scrollbar-hide">
+      <div className="grid max-h-56 grid-cols-1 gap-2 overflow-y-auto scrollbar-hide sm:grid-cols-2">
         {filteredEquipment.map((eq) => (
           <button
             key={eq.id}
@@ -137,10 +136,11 @@ const ExerciseSelector = ({ selectedExercises, onSelect }: ExerciseSelectorProps
 
       {/* Selected Exercises Config */}
       {selectedExercises.length > 0 && (
-        <div className="space-y-2 pt-4 border-t border-border">
+        <div className="space-y-2 border-t border-border pt-4">
           <h4 className="font-bold text-sm">Exercícios selecionados ({selectedExercises.length})</h4>
-          {selectedExercises.map((ex, index) => (
-            <div key={ex.equipment_id} className="bg-secondary rounded-xl p-3">
+          <div className="max-h-[44vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[36vh]">
+            {selectedExercises.map((ex, index) => (
+              <div key={ex.equipment_id} className="rounded-xl bg-secondary p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-sm">{index + 1}. {ex.name}</span>
                 <button
@@ -150,7 +150,7 @@ const ExerciseSelector = ({ selectedExercises, onSelect }: ExerciseSelectorProps
                   <X size={16} />
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <div>
                   <label className="text-xs text-muted-foreground">Séries</label>
                   <Input
@@ -170,7 +170,7 @@ const ExerciseSelector = ({ selectedExercises, onSelect }: ExerciseSelectorProps
                     className="h-8 text-center bg-background border-0 rounded-lg"
                   />
                 </div>
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="text-xs text-muted-foreground">Descanso</label>
                   <Input
                     type="number"
@@ -183,8 +183,9 @@ const ExerciseSelector = ({ selectedExercises, onSelect }: ExerciseSelectorProps
                   />
                 </div>
               </div>
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

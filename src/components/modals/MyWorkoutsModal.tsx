@@ -49,18 +49,26 @@ const MyWorkoutsModal = ({ open, onOpenChange }: MyWorkoutsModalProps) => {
     .filter(s => s.status === "completed")
     .slice(0, 5);
 
+  const objectiveLabelMap: Record<string, string> = {
+    fat_loss: "Emagrecimento",
+    muscle_gain: "Ganho de massa",
+    health: "Saúde geral",
+    strength: "Força",
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl animate-scale-in max-h-[90vh] overflow-y-auto scrollbar-hide">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-center flex items-center justify-center gap-2">
-              <Play className="text-primary" size={24} />
-              Meus Treinos
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-sm animate-scale-in overflow-hidden rounded-2xl border-border bg-card p-0">
+          <div className="flex max-h-[84dvh] flex-col">
+            <DialogHeader className="px-4 pb-2 pt-4 sm:px-6">
+              <DialogTitle className="flex items-center justify-center gap-2 text-center text-xl font-bold">
+                <Play className="text-primary" size={24} />
+                Meus Treinos
+              </DialogTitle>
+            </DialogHeader>
 
-          <div className="space-y-4 mt-4">
+            <div className="mt-2 flex-1 space-y-4 overflow-y-auto px-3 pb-4 sm:px-6">
             {/* Stats */}
             <WorkoutStats />
 
@@ -75,7 +83,7 @@ const MyWorkoutsModal = ({ open, onOpenChange }: MyWorkoutsModalProps) => {
                   ))}
                 </div>
               ) : workouts.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
+                <div className="py-8 text-center text-muted-foreground">
                   <Dumbbell size={32} className="mx-auto mb-2 opacity-50" />
                   <p className="text-sm">Você ainda não criou nenhum treino</p>
                 </div>
@@ -91,7 +99,7 @@ const MyWorkoutsModal = ({ open, onOpenChange }: MyWorkoutsModalProps) => {
                           <h4 className="font-bold text-sm">{workout.name}</h4>
                           <p className="text-xs text-muted-foreground">
                             {workout.workout_exercises.length} exercícios
-                            {workout.objective && ` • ${workout.objective}`}
+                            {workout.objective && ` • ${objectiveLabelMap[workout.objective] ?? workout.objective}`}
                           </p>
                         </div>
                         
@@ -160,6 +168,7 @@ const MyWorkoutsModal = ({ open, onOpenChange }: MyWorkoutsModalProps) => {
                 </div>
               </section>
             )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

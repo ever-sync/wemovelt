@@ -148,7 +148,7 @@ const AddToWorkoutModal = ({ equipment, open, onOpenChange, onSuccess }: AddToWo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl animate-scale-in">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-sm rounded-2xl border-border bg-card animate-scale-in">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center flex items-center justify-center gap-2">
             <Plus className="text-primary" size={24} />

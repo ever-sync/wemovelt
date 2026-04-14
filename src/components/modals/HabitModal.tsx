@@ -40,7 +40,7 @@ const HabitModal = ({ habit, open, onOpenChange }: HabitModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-sm mx-4 rounded-2xl">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-sm rounded-2xl border-border bg-card">
         <DialogHeader>
           <div className={cn(
             "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4",
