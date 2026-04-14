@@ -21,7 +21,9 @@ export const useUserRole = () => {
       return data as boolean;
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   return { isAdmin: isAdmin ?? false, isLoading };
