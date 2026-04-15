@@ -278,13 +278,6 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
     onOpenChange(nextOpen);
   };
 
-  const handleSocialClick = (provider: "Google" | "Apple") => {
-    toast({
-      title: `${provider} em breve`,
-      description: "Primeiro vamos fechar o fluxo principal com e-mail e senha.",
-    });
-  };
-
   const renderFieldError = (field: string) =>
     errors[field] ? <p className="text-xs text-destructive">{errors[field]}</p> : null;
 
@@ -473,33 +466,6 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
                   "Criar conta"
                 )}
               </Button>
-
-              {!resetMode && (
-                <>
-                  <div className="flex items-center gap-3 py-1">
-                    <div className="h-px flex-1 bg-white/10" />
-                    <span className="text-[0.72rem] text-muted-foreground">Ou continue com</span>
-                    <div className="h-px flex-1 bg-white/10" />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleSocialClick("Google")}
-                      className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium transition-colors hover:bg-white/[0.06]"
-                    >
-                      Google
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSocialClick("Apple")}
-                      className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium transition-colors hover:bg-white/[0.06]"
-                    >
-                      Apple
-                    </button>
-                  </div>
-                </>
-              )}
             </form>
 
             {!resetMode && (
