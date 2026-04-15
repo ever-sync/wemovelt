@@ -7,7 +7,6 @@ import { Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import TurnstileWidget from "@/components/auth/TurnstileWidget";
 
 interface AuthModalProps {
   open: boolean;
@@ -130,14 +129,10 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaRenderKey, setCaptchaRenderKey] = useState(0);
   const [signupCooldownMs, setSignupCooldownMs] = useState(0);
 
   const { signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
-  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
-  const shouldShowCaptcha = Boolean(turnstileSiteKey) && (currentMode === "register" || resetMode);
   const normalizedEmail = email.trim().toLowerCase();
 
   useEffect(() => {
@@ -157,8 +152,6 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
     setRememberMe(true);
     setResetMode(false);
     setErrors({});
-    setCaptchaToken(null);
-    setCaptchaRenderKey((current) => current + 1);
     setSignupCooldownMs(0);
   };
 
@@ -166,8 +159,6 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
     setCurrentMode(nextMode);
     setResetMode(false);
     setErrors({});
-    setCaptchaToken(null);
-    setCaptchaRenderKey((current) => current + 1);
   };
 
   useEffect(() => {
@@ -230,19 +221,10 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
       }
     }
 
-    if (shouldShowCaptcha && !captchaToken) {
-      toast({
-        title: "Verificacao necessaria",
-        description: "Conclua o captcha antes de continuar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       if (resetMode) {
-        const { error } = await resetPassword(email, captchaToken ?? undefined);
+        const { error } = await resetPassword(email);
         if (error) {
           toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
         } else {
@@ -268,7 +250,7 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
       storeSignupAttempt(normalizedEmail);
       setSignupCooldownMs(getSignupCooldownMs(normalizedEmail));
 
-      const { error } = await signUp(email, password, name, captchaToken ?? undefined);
+      const { error } = await signUp(email, password, name);
       if (error) {
         const authError = error as AuthLikeError;
         if (authError.status === 429 || authError.code === "over_request_rate_limit" || authError.code === "over_email_send_rate_limit") {
@@ -285,10 +267,6 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
         resetState();
       }
     } finally {
-      if (shouldShowCaptcha) {
-        setCaptchaToken(null);
-        setCaptchaRenderKey((current) => current + 1);
-      }
       setLoading(false);
     }
   };
@@ -471,14 +449,6 @@ const AuthModal = ({ open, onOpenChange, mode, onSuccess }: AuthModalProps) => {
                   <span>Secure access</span>
                 )}
               </div>
-
-              {shouldShowCaptcha && turnstileSiteKey ? (
-                <TurnstileWidget
-                  key={captchaRenderKey}
-                  siteKey={turnstileSiteKey}
-                  onVerify={setCaptchaToken}
-                />
-              ) : null}
 
               {!resetMode && currentMode === "register" && signupCooldownMs > 0 ? (
                 <p className="text-xs text-muted-foreground">
